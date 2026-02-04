@@ -4,6 +4,8 @@ import { z } from "zod";
 import { db } from "@/db";
 import { matches } from "@/db/schema";
 
+export const dynamic = 'force-dynamic';
+
 const querySchema = z
   .object({
     date: z.string().optional()
