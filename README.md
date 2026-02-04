@@ -2,6 +2,8 @@
 
 Clubstream is a Next.js App Router application for managing live sports streams and score overlays.
 
+Note: The Codex sandbox may not be able to install dependencies. CI is the validation path.
+
 ## Setup
 
 1. Install dependencies:
