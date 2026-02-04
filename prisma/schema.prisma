@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StreamStatus {
+  AVAILABLE
+  RESERVED
+  IN_USE
+  STUCK
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  COMPLETED
+  CANCELED
+}
+
+enum OAuthStatus {
+  DISCONNECTED
+  CONNECTING
+  CONNECTED
+  ERROR
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  homeMatches Match[] @relation("HomeTeam")
+  awayMatches Match[] @relation("AwayTeam")
+}
+
+model Tournament {
+  id        String   @id @default(uuid())
+  name      String
+  startsAt  DateTime?
+  createdAt DateTime @default(now())
+
+  matches Match[]
+}
+
+model Match {
+  id                 String      @id @default(uuid())
+  title              String
+  tournamentId       String?
+  homeTeamId         String
+  awayTeamId         String
+  scheduledAt        DateTime?
+  status             MatchStatus @default(SCHEDULED)
+  youtubeBroadcastId String?
+  youtubeWatchUrl    String?
+  streamPoolId       String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  tournament Tournament? @relation(fields: [tournamentId], references: [id])
+  homeTeam   Team        @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam   Team        @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  streamPool StreamPool? @relation(fields: [streamPoolId], references: [id])
+  scores     Score[]
+}
+
+model StreamPool {
+  id             String       @id @default(uuid())
+  youtubeStreamId String      @unique
+  ingestAddress  String
+  streamName     String
+  status         StreamStatus @default(AVAILABLE)
+  reservedAt     DateTime?
+  createdAt      DateTime     @default(now())
+
+  matches Match[]
+}
+
+model Score {
+  id        String   @id @default(uuid())
+  matchId   String
+  teamId    String
+  value     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  match Match @relation(fields: [matchId], references: [id])
+  team  Team  @relation(fields: [teamId], references: [id])
+}
+
+model AdminSettings {
+  id               Int         @id @default(1)
+  requireCreatePin Boolean     @default(false)
+  pinHash          String?
+  oauthStatus      OAuthStatus @default(DISCONNECTED)
+  channelId        String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  detail    Json?
+  createdAt DateTime @default(now())
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+}
