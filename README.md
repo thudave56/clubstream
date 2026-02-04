@@ -43,7 +43,7 @@ Note: The Codex sandbox may not be able to install dependencies. CI is the valid
 - Visit `/m/[id]` to see match detail placeholder.
 - Visit `/admin` for the admin login placeholder.
 - GET `/api/teams` should return seeded teams.
-- GET `/api/matches?date=YYYY-MM-DD` returns an empty array.
+- GET `/api/matches?date=YYYY-MM-DD` returns an object with a `matches` array (e.g. `{ "matches": [] }` when there are no matches).
 
 ## Troubleshooting npm install
 
