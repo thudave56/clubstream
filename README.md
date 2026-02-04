@@ -12,11 +12,11 @@ Clubstream is a Next.js App Router application for managing live sports streams 
    ```bash
    cp .env.example .env
    ```
-3. Run Prisma migrations and seed data:
+3. Run Drizzle migrations and seed data:
    ```bash
-   npm run prisma:migrate
-   npm run prisma:generate
-   npm run prisma:seed
+   npm run db:generate
+   npm run db:migrate
+   npm run db:seed
    ```
 4. Start the dev server:
    ```bash
@@ -31,8 +31,9 @@ Clubstream is a Next.js App Router application for managing live sports streams 
 ## How to run
 
 - `npm run dev` - Start the Next.js dev server.
-- `npm run prisma:migrate` - Apply Prisma migrations in development.
-- `npm run prisma:seed` - Seed example teams.
+- `npm run db:generate` - Generate Drizzle migrations from schema changes.
+- `npm run db:migrate` - Apply Drizzle migrations to the database.
+- `npm run db:seed` - Seed example teams.
 
 ## What to test
 

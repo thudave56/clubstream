@@ -1,9 +1,10 @@
-import { prisma } from "@/lib/prisma";
+import { asc } from "drizzle-orm";
+
+import { db } from "@/db";
+import { teams } from "@/db/schema";
 
 export async function GET() {
-  const teams = await prisma.team.findMany({
-    orderBy: { name: "asc" }
-  });
+  const rows = await db.select().from(teams).orderBy(asc(teams.name));
 
-  return Response.json({ teams });
+  return Response.json({ teams: rows });
 }
