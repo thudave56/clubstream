@@ -41,7 +41,9 @@ Note: The Codex sandbox may not be able to install dependencies. CI is the valid
 
 - Visit `/` to see the match list placeholder.
 - Visit `/m/[id]` to see match detail placeholder.
-- Visit `/admin` for the admin login placeholder.
+- Visit `/admin` for admin login (use PIN `1234`).
+- Visit `/admin/dashboard` after logging in to see admin dashboard.
+- Test admin logout and session management.
 - GET `/api/teams` should return seeded teams (only enabled teams).
 - GET `/api/matches?date=YYYY-MM-DD` returns an object with a `matches` array (e.g. `{ "matches": [] }` when there are no matches).
 
@@ -89,6 +91,44 @@ This is a breaking schema change. If you have existing data:
 2. Identify which teams are "club teams" vs "opponents"
 3. For each match, keep one club team as `teamId`, convert opponent to `opponentName`
 4. Scores will need to be restructured into set-based format
+
+## Admin Authentication (PR #2)
+
+Admin PIN authentication system with session management.
+
+### Features:
+
+**Security:**
+- Admin PIN authentication with secure hashing (scrypt)
+- HTTP-only secure session cookies (24-hour duration)
+- Rate limiting (5 attempts per 15 minutes)
+- Audit logging for all admin actions
+
+**Admin Dashboard:**
+- OAuth status display (connected/disconnected)
+- Stream pool health metrics (available/reserved/in_use/stuck)
+- Security settings toggle (`requireCreatePin` feature flag)
+- Recent activity audit log viewer (placeholder)
+
+**API Endpoints:**
+- `POST /api/admin/login` - Authenticate with admin PIN
+- `POST /api/admin/logout` - End admin session
+- `GET /api/admin/settings` - Get admin settings (protected)
+- `PATCH /api/admin/settings` - Update settings (protected)
+
+### Default Admin PIN:
+
+⚠️ **Default PIN:** `1234` (for development only)
+
+**IMPORTANT:** Change this PIN in production! The seed script initializes the admin settings with this default PIN. You should change it through the database or implement a PIN change feature.
+
+### Testing Admin Auth:
+
+1. Run seed script: `npm run db:seed`
+2. Visit `/admin` and login with PIN `1234`
+3. You'll be redirected to `/admin/dashboard`
+4. Try toggling the "Require PIN for Match Creation" setting
+5. Test logout functionality
 
 ## Troubleshooting npm install
 

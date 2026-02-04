@@ -1,7 +1,8 @@
 import "dotenv/config";
 import { eq } from "drizzle-orm";
 import { db } from "./index";
-import { teams } from "./schema";
+import { teams, adminSettings } from "./schema";
+import { hashPin } from "../lib/auth";
 
 const teamData = [
   { slug: "northside-lions", displayName: "Northside Lions" },
@@ -10,7 +11,11 @@ const teamData = [
   { slug: "lakeside-united", displayName: "Lakeside United" }
 ];
 
+// Default admin PIN for development (should be changed in production)
+const DEFAULT_ADMIN_PIN = "1234";
+
 async function main() {
+  // Seed teams
   for (const team of teamData) {
     const existing = await db.select().from(teams).where(eq(teams.slug, team.slug)).limit(1);
 
@@ -24,6 +29,30 @@ async function main() {
   }
 
   console.log(`Seeded teams: ${teamData.length}`);
+
+  // Initialize admin settings
+  const existingSettings = await db
+    .select()
+    .from(adminSettings)
+    .where(eq(adminSettings.id, 1))
+    .limit(1);
+
+  if (existingSettings.length === 0) {
+    const adminPinHash = hashPin(DEFAULT_ADMIN_PIN);
+
+    await db.insert(adminSettings).values({
+      id: 1,
+      requireCreatePin: false,
+      adminPinHash,
+      oauthStatus: "disconnected"
+    });
+
+    console.log("Initialized admin settings");
+    console.log(`⚠️  Default admin PIN: ${DEFAULT_ADMIN_PIN}`);
+    console.log("⚠️  IMPORTANT: Change this PIN in production!");
+  } else {
+    console.log("Admin settings already initialized");
+  }
 }
 
 main()
