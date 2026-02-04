@@ -42,8 +42,53 @@ Note: The Codex sandbox may not be able to install dependencies. CI is the valid
 - Visit `/` to see the match list placeholder.
 - Visit `/m/[id]` to see match detail placeholder.
 - Visit `/admin` for the admin login placeholder.
-- GET `/api/teams` should return seeded teams.
+- GET `/api/teams` should return seeded teams (only enabled teams).
 - GET `/api/matches?date=YYYY-MM-DD` returns an object with a `matches` array (e.g. `{ "matches": [] }` when there are no matches).
+
+## Schema Changes (PR: Align with PRD)
+
+The database schema has been updated to align with the PRD specifications:
+
+### Key Changes:
+
+**teams table:**
+- Added `slug` field for URL-friendly identifiers
+- Renamed `name` to `display_name` for clarity
+- Added `enabled` flag for soft-deleting teams
+
+**matches table:**
+- Changed from `homeTeamId + awayTeamId` to `teamId + opponentName` model
+  - `teamId`: References one of our club teams
+  - `opponentName`: Free-form text for external opponents
+- Removed `title` field (can be computed from team + opponent)
+- Added `idempotencyKey` for preventing duplicate match creation
+- Added `courtLabel` for multi-court tournament support
+- Renamed `scheduledAt` to `scheduledStart`
+- Enhanced status enum: `draft`, `scheduled`, `ready`, `live`, `ended`, `canceled`, `error`
+
+**scores table:**
+- Complete redesign to set-based volleyball scoring
+- Composite primary key: `(matchId, setNumber)`
+- Fields: `homeScore`, `awayScore` (replaces per-team tracking)
+- Supports volleyball's 3-5 set structure
+
+**stream_pool table:**
+- Added `reservedMatchId` to track which match reserved a stream
+- Added `disabled` state to status enum
+
+**tournaments table:**
+- Changed from single `startsAt` timestamp to `startDate` and `endDate` (date fields)
+
+**admin_settings table:**
+- Split `pinHash` into `adminPinHash` and `createPinHash` for dual PIN security model
+
+### Migration Notes:
+
+This is a breaking schema change. If you have existing data:
+1. Back up your database
+2. Identify which teams are "club teams" vs "opponents"
+3. For each match, keep one club team as `teamId`, convert opponent to `opponentName`
+4. Scores will need to be restructured into set-based format
 
 ## Troubleshooting npm install
 

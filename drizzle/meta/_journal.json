@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1770243575629,
+      "tag": "0000_stale_hawkeye",
+      "breakpoints": true
+    }
+  ]
+}

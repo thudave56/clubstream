@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     const rows = await db
       .select()
       .from(matches)
-      .where(and(gte(matches.scheduledAt, start), lt(matches.scheduledAt, end)));
+      .where(and(gte(matches.scheduledStart, start), lt(matches.scheduledStart, end)));
 
     return Response.json({ matches: rows });
   }
