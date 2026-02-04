@@ -41,3 +41,13 @@ Clubstream is a Next.js App Router application for managing live sports streams 
 - Visit `/admin` for the admin login placeholder.
 - GET `/api/teams` should return seeded teams.
 - GET `/api/matches?date=YYYY-MM-DD` returns an empty array.
+
+## Troubleshooting npm install
+
+If `npm install` returns a 403 error, ensure the project is using the public npm registry:
+
+```bash
+npm install --registry=https://registry.npmjs.org/
+```
+
+This repository includes a `.npmrc` with the registry set to `https://registry.npmjs.org/`. If your environment enforces a private registry, update it to allow the public registry for this project.
