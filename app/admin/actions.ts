@@ -95,12 +95,23 @@ export async function loginAction(formData: FormData): Promise<LoginResult> {
     });
 
     // Set cookie using cookies() from next/headers
-    cookies().set("admin_session", sessionToken, {
+    const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: "lax" as const,
       maxAge: 24 * 60 * 60,
       path: "/"
+    };
+
+    cookies().set("admin_session", sessionToken, cookieOptions);
+
+    // Debug: Log cookie setting
+    console.log("[Server Action] Cookie set successfully:", {
+      tokenLength: sessionToken.length,
+      httpOnly: cookieOptions.httpOnly,
+      secure: cookieOptions.secure,
+      sameSite: cookieOptions.sameSite,
+      env: process.env.NODE_ENV
     });
 
   } catch (error) {

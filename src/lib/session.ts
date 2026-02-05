@@ -62,10 +62,23 @@ export async function validateSession(token: string): Promise<boolean> {
  */
 export async function isAuthenticated(): Promise<boolean> {
   const token = getSessionToken();
+
+  // Debug: Log authentication check
+  console.log("[isAuthenticated] Checking auth:", {
+    hasToken: !!token,
+    tokenLength: token?.length,
+    env: process.env.NODE_ENV
+  });
+
   if (!token) {
+    console.log("[isAuthenticated] No token found in cookies");
     return false;
   }
-  return await validateSession(token);
+
+  const isValid = await validateSession(token);
+  console.log("[isAuthenticated] Validation result:", isValid);
+
+  return isValid;
 }
 
 /**
