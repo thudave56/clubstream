@@ -1,11 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
 import { encryptToken, decryptToken } from "./crypto";
-
-// Set up test encryption key
-beforeAll(() => {
-  process.env.ENCRYPTION_KEY =
-    "0a273d28974c80e4cc96700c766ec8c1dcd1a6b643e0e824f1d86d4efc8f9832";
-});
 
 describe("crypto", () => {
   describe("encryptToken and decryptToken", () => {
