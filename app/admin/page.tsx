@@ -18,14 +18,18 @@ export default function AdminLoginPage() {
       const response = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin })
+        body: JSON.stringify({ pin }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        // Redirect to dashboard
+        // Small delay to ensure cookie is written (helps with CI/Playwright)
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Navigate to dashboard, then refresh to ensure cookies are loaded
         router.push("/admin/dashboard");
+        router.refresh();
       } else if (response.status === 429) {
         setError(`Too many attempts. Please try again in ${data.retryAfter} seconds.`);
       } else {

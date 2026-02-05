@@ -9,7 +9,6 @@ export async function POST() {
 
     if (token) {
       await deleteSession(token);
-      clearSessionCookie();
 
       // Log logout
       await db.insert(auditLog).values({
@@ -18,7 +17,11 @@ export async function POST() {
       });
     }
 
-    return NextResponse.json({ success: true });
+    // Create response and clear cookie
+    const response = NextResponse.json({ success: true });
+    response.cookies.delete("admin_session");
+
+    return response;
   } catch (error) {
     console.error("Logout error:", error);
     return NextResponse.json(
