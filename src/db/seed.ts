@@ -11,8 +11,8 @@ const teamData = [
   { slug: "lakeside-united", displayName: "Lakeside United" }
 ];
 
-// Default admin PIN for development (should be changed in production)
-const DEFAULT_ADMIN_PIN = "1234";
+// Default admin PIN - configurable via environment variable
+const DEFAULT_ADMIN_PIN = process.env.DEFAULT_ADMIN_PIN || "1234";
 
 async function main() {
   // Seed teams
