@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Admin Authentication', () => {
+  // Run these tests serially due to shared rate limiter state
+  test.describe.configure({ mode: 'serial' });
+
   test.beforeEach(async ({ page }) => {
     // Navigate to admin login page
     await page.goto('/admin');
@@ -31,17 +34,24 @@ test.describe('Admin Authentication', () => {
     await expect(page.getByRole('heading', { name: 'Admin Dashboard' })).toBeVisible();
   });
 
-  test('should show rate limiting after multiple failed attempts', async ({ page }) => {
+  test('should show rate limiting after multiple failed attempts', async ({ page, request }) => {
+    // Reset rate limiter before this test
+    await request.post('http://localhost:3000/api/admin/test-reset');
+    await page.waitForTimeout(500); // Give server time to reset
+
+    await page.goto('/admin');
+
     // Attempt login 5 times with wrong PIN
     for (let i = 0; i < 5; i++) {
       await page.getByLabel('Admin PIN').fill('9999');
       await page.getByRole('button', { name: 'Sign In' }).click();
-      await page.waitForTimeout(100);
+      await page.waitForTimeout(200);
     }
 
     // 6th attempt should show rate limit error
     await page.getByLabel('Admin PIN').fill('9999');
     await page.getByRole('button', { name: 'Sign In' }).click();
+    await page.waitForTimeout(500); // Wait for error to display
 
     await expect(page.getByText(/Too many attempts/)).toBeVisible();
   });

@@ -113,9 +113,6 @@ export async function POST(request: NextRequest) {
 
     response.headers.set('Set-Cookie', cookieValue);
 
-    console.log("[LOGIN] Setting cookie with token:", sessionToken.substring(0, 10) + "...");
-    console.log("[LOGIN] Cookie value:", cookieValue);
-
     return response;
   } catch (error) {
     console.error("Admin login error:", error);

@@ -72,3 +72,10 @@ export function getResetTime(ip: string): number {
 export function clearAttempts(ip: string): void {
   attempts.delete(ip);
 }
+
+/**
+ * Reset all rate limit attempts (for testing only)
+ */
+export function resetAllAttempts(): void {
+  attempts.clear();
+}

@@ -28,7 +28,6 @@ export async function createSession(): Promise<string> {
 export function getSessionToken(): string | undefined {
   const cookieStore = cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  console.log("[SESSION] getSessionToken called, found token:", token ? token.substring(0, 10) + "..." : "NO TOKEN");
   return token;
 }
 

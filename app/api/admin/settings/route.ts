@@ -15,7 +15,6 @@ export async function GET() {
   try {
     // Check authentication
     const authenticated = await isAuthenticated();
-    console.log("[SETTINGS] Authentication check result:", authenticated);
     if (!authenticated) {
       return NextResponse.json(
         { error: "Unauthorized" },
