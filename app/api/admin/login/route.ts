@@ -92,7 +92,6 @@ export async function POST(request: NextRequest) {
 
     // Create session
     const sessionToken = await createSession();
-    await setSessionCookie(sessionToken);
 
     // Log successful login
     await db.insert(auditLog).values({
@@ -100,7 +99,17 @@ export async function POST(request: NextRequest) {
       detail: { ip }
     });
 
-    return NextResponse.json({ success: true });
+    // Create response and set cookie
+    const response = NextResponse.json({ success: true });
+    response.cookies.set("admin_session", sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60, // 24 hours in seconds
+      path: "/"
+    });
+
+    return response;
   } catch (error) {
     console.error("Admin login error:", error);
     return NextResponse.json(

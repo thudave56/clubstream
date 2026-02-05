@@ -5,11 +5,10 @@ import { auditLog } from "@/db/schema";
 
 export async function POST() {
   try {
-    const token = await getSessionToken();
+    const token = getSessionToken();
 
     if (token) {
       await deleteSession(token);
-      await clearSessionCookie();
 
       // Log logout
       await db.insert(auditLog).values({
@@ -18,7 +17,11 @@ export async function POST() {
       });
     }
 
-    return NextResponse.json({ success: true });
+    // Create response and clear cookie
+    const response = NextResponse.json({ success: true });
+    response.cookies.delete("admin_session");
+
+    return response;
   } catch (error) {
     console.error("Logout error:", error);
     return NextResponse.json(

@@ -25,8 +25,8 @@ export async function createSession(): Promise<string> {
 /**
  * Get session token from cookie
  */
-export async function getSessionToken(): Promise<string | undefined> {
-  const cookieStore = await cookies();
+export function getSessionToken(): string | undefined {
+  const cookieStore = cookies();
   return cookieStore.get(SESSION_COOKIE_NAME)?.value;
 }
 
@@ -60,7 +60,7 @@ export async function validateSession(token: string): Promise<boolean> {
  * Check if current request has valid admin session
  */
 export async function isAuthenticated(): Promise<boolean> {
-  const token = await getSessionToken();
+  const token = getSessionToken();
   if (!token) {
     return false;
   }
@@ -77,8 +77,8 @@ export async function deleteSession(token: string): Promise<void> {
 /**
  * Set session cookie
  */
-export async function setSessionCookie(token: string): Promise<void> {
-  const cookieStore = await cookies();
+export function setSessionCookie(token: string): void {
+  const cookieStore = cookies();
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -91,7 +91,7 @@ export async function setSessionCookie(token: string): Promise<void> {
 /**
  * Clear session cookie
  */
-export async function clearSessionCookie(): Promise<void> {
-  const cookieStore = await cookies();
+export function clearSessionCookie(): void {
+  const cookieStore = cookies();
   cookieStore.delete(SESSION_COOKIE_NAME);
 }
