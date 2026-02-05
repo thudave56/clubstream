@@ -24,6 +24,9 @@ export default function AdminLoginPage() {
       const data = await response.json();
 
       if (response.ok) {
+        // Small delay to ensure cookie is written (helps with CI/Playwright)
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         // Navigate to dashboard, then refresh to ensure cookies are loaded
         router.push("/admin/dashboard");
         router.refresh();
