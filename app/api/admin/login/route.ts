@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-<<<<<<< HEAD
-=======
 import { eq } from "drizzle-orm";
->>>>>>> fc26da2 (Implement admin PIN authentication with testing (PR #2))
 import { db } from "@/db";
 import { adminSettings, auditLog } from "@/db/schema";
 import { verifyPin } from "@/lib/auth";
