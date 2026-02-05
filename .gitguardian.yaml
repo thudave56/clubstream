@@ -1,0 +1,26 @@
+# GitGuardian configuration
+# Ignore test/development secrets
+
+version: 2
+
+# Paths to ignore completely
+paths-ignore:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/seed.ts"
+  - ".env.example"
+
+# Specific secrets to ignore (by SHA256 hash)
+matches-ignore:
+  - name: Development admin PIN
+    match: "1234"  # Test PIN used in development/testing
+  - name: Test database credentials
+    match: postgres:postgres  # Default test database credentials
+  - name: Placeholder database URLs
+    match: postgresql://placeholder
+
+# Ignore secrets in specific files
+excluded-paths:
+  - ".github/workflows/ci.yml"  # CI workflow contains test credentials
+  - "src/db/seed.ts"  # Seed file contains development defaults
+  - ".env.example"  # Example file with placeholder values
