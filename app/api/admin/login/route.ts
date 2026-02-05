@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     // Create session
     const sessionToken = await createSession();
-    setSessionCookie(sessionToken);
+    await setSessionCookie(sessionToken);
 
     // Log successful login
     await db.insert(auditLog).values({

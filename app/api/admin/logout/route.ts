@@ -5,11 +5,11 @@ import { auditLog } from "@/db/schema";
 
 export async function POST() {
   try {
-    const token = getSessionToken();
+    const token = await getSessionToken();
 
     if (token) {
       await deleteSession(token);
-      clearSessionCookie();
+      await clearSessionCookie();
 
       // Log logout
       await db.insert(auditLog).values({
