@@ -25,24 +25,23 @@ async function disconnectOAuth(page) {
 }
 
 test.describe("YouTube OAuth Flow", () => {
-  // Ensure clean state before each test
-  test.beforeEach(async ({ page }) => {
-    await loginAsAdmin(page);
-    // Disconnect if connected
-    await disconnectOAuth(page);
-    await page.reload();
-  });
-
   test("should display OAuth status section with disconnected state", async ({
     page
   }) => {
+    await loginAsAdmin(page);
+    // Ensure disconnected
+    await disconnectOAuth(page);
+    await page.reload();
+
     // Check OAuth status section exists
     await expect(
       page.getByRole("heading", { name: "YouTube OAuth Status" })
     ).toBeVisible();
 
     // Check status badge shows "disconnected"
-    await expect(page.locator("text=disconnected")).toBeVisible();
+    await expect(
+      page.locator("span.rounded-full:has-text('disconnected')")
+    ).toBeVisible();
 
     // Check Connect button is visible and enabled
     const connectButton = page.getByRole("button", {
@@ -53,6 +52,11 @@ test.describe("YouTube OAuth Flow", () => {
   });
 
   test("should not display channel ID when disconnected", async ({ page }) => {
+    await loginAsAdmin(page);
+    // Ensure disconnected
+    await disconnectOAuth(page);
+    await page.reload();
+
     // Channel ID should not be visible
     await expect(page.locator("text=Channel ID")).not.toBeVisible();
   });
@@ -60,14 +64,19 @@ test.describe("YouTube OAuth Flow", () => {
   test("should show connected status after mock OAuth success", async ({
     page
   }) => {
+    await loginAsAdmin(page);
+
     // Simulate OAuth connection
     await simulateOAuthConnect(page);
 
     // Reload page to see updated status
     await page.reload();
+    await page.waitForLoadState("networkidle");
 
     // Check status badge shows "connected"
-    await expect(page.locator("text=connected")).toBeVisible();
+    await expect(
+      page.locator("span.rounded-full:has-text('connected')")
+    ).toBeVisible();
 
     // Check channel ID is displayed
     await expect(page.locator("text=Channel ID")).toBeVisible();
@@ -84,12 +93,16 @@ test.describe("YouTube OAuth Flow", () => {
   test("should disconnect OAuth and return to disconnected state", async ({
     page
   }) => {
+    await loginAsAdmin(page);
+
     // First, connect OAuth using test endpoint
     await simulateOAuthConnect(page);
     await page.reload();
 
     // Verify connected
-    await expect(page.locator("text=connected")).toBeVisible();
+    await expect(
+      page.locator("span.rounded-full:has-text('connected')")
+    ).toBeVisible();
 
     // Set up dialog handler to accept confirmation
     page.on("dialog", (dialog) => dialog.accept());
@@ -117,6 +130,8 @@ test.describe("YouTube OAuth Flow", () => {
   test("should show success message after navigation with success param", async ({
     page
   }) => {
+    await loginAsAdmin(page);
+
     // Navigate to dashboard with success param
     await page.goto("/admin/dashboard?oauth=success");
 
@@ -131,6 +146,8 @@ test.describe("YouTube OAuth Flow", () => {
   });
 
   test("should show error message when OAuth fails", async ({ page }) => {
+    await loginAsAdmin(page);
+
     // Navigate with error param
     await page.goto("/admin/dashboard?oauth=error");
 
@@ -147,6 +164,8 @@ test.describe("YouTube OAuth Flow", () => {
   test("should show denied message when user denies OAuth", async ({
     page
   }) => {
+    await loginAsAdmin(page);
+
     // Navigate with denied param
     await page.goto("/admin/dashboard?oauth=denied");
 
@@ -163,6 +182,8 @@ test.describe("YouTube OAuth Flow", () => {
   test("should clear OAuth query param from URL after displaying message", async ({
     page
   }) => {
+    await loginAsAdmin(page);
+
     // Navigate with success param
     await page.goto("/admin/dashboard?oauth=success");
 
