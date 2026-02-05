@@ -79,6 +79,9 @@ test.describe('Admin Dashboard', () => {
     await page.getByLabel('Admin PIN').fill('1234');
     await page.getByRole('button', { name: 'Sign In' }).click();
 
+    // Wait for navigation to dashboard
+    await expect(page).toHaveURL('/admin/dashboard');
+
     // Check dashboard content
     await expect(page.getByRole('heading', { name: 'Admin Dashboard' })).toBeVisible();
     await expect(page.getByText('YouTube OAuth Status')).toBeVisible();
@@ -91,6 +94,9 @@ test.describe('Admin Dashboard', () => {
     await page.goto('/admin');
     await page.getByLabel('Admin PIN').fill('1234');
     await page.getByRole('button', { name: 'Sign In' }).click();
+
+    // Wait for navigation to dashboard
+    await expect(page).toHaveURL('/admin/dashboard');
 
     // Find the toggle button
     const toggle = page.getByRole('button').filter({ has: page.locator('span.inline-block.h-4.w-4') });
@@ -112,6 +118,9 @@ test.describe('Admin Dashboard', () => {
     await page.getByLabel('Admin PIN').fill('1234');
     await page.getByRole('button', { name: 'Sign In' }).click();
 
+    // Wait for navigation to dashboard
+    await expect(page).toHaveURL('/admin/dashboard');
+
     // Click logout button
     await page.getByRole('button', { name: 'Logout' }).click();
 
@@ -125,6 +134,9 @@ test.describe('Admin Dashboard', () => {
     await page.goto('/admin');
     await page.getByLabel('Admin PIN').fill('1234');
     await page.getByRole('button', { name: 'Sign In' }).click();
+
+    // Wait for navigation to dashboard
+    await expect(page).toHaveURL('/admin/dashboard');
 
     // Logout
     await page.getByRole('button', { name: 'Logout' }).click();
