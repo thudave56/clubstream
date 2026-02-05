@@ -51,6 +51,13 @@ Clubstream is a web application designed for club volleyball teams to easily liv
 
    # Optional: Set custom default admin PIN for seeding (defaults to "1234")
    DEFAULT_ADMIN_PIN="1234"
+
+   # Google OAuth (see Google Cloud Setup below)
+   GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
+   GOOGLE_CLIENT_SECRET="your-client-secret"
+
+   # Generate with: openssl rand -hex 32
+   ENCRYPTION_KEY="your-64-character-hex-string"
    ```
 
 4. **Initialize database**
@@ -67,6 +74,47 @@ Clubstream is a web application designed for club volleyball teams to easily liv
 6. **Open your browser**
    - Navigate to `http://localhost:3000`
    - Admin login: `http://localhost:3000/admin` (PIN: `1234`)
+
+---
+
+### Google Cloud Setup (Required for YouTube Integration)
+
+To enable YouTube OAuth integration, you need to set up a Google Cloud project and OAuth credentials:
+
+1. **Create Google Cloud Project:**
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select an existing one
+   - Enable **YouTube Data API v3** for your project
+
+2. **Create OAuth 2.0 Credentials:**
+   - Navigate to **APIs & Services** > **Credentials**
+   - Click **Create Credentials** > **OAuth client ID**
+   - Application type: **Web application**
+   - Add **Authorized redirect URIs**:
+     - Development: `http://localhost:3000/api/admin/oauth/callback`
+     - Production: `https://yourdomain.com/api/admin/oauth/callback`
+   - Copy the **Client ID** and **Client Secret**
+
+3. **Configure Environment Variables:**
+   - Add the credentials to your `.env` file:
+     ```bash
+     GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
+     GOOGLE_CLIENT_SECRET="your-client-secret"
+     ```
+   - Generate an encryption key:
+     ```bash
+     openssl rand -hex 32
+     ```
+   - Add the encryption key to `.env`:
+     ```bash
+     ENCRYPTION_KEY="your-64-character-hex-string"
+     ```
+
+4. **Connect YouTube Channel:**
+   - Log in to the admin dashboard: `http://localhost:3000/admin`
+   - Navigate to the **YouTube OAuth Status** section
+   - Click **Connect YouTube** and authorize with your Google account
+   - Verify that the status shows **connected** and displays your channel ID
 
 ---
 

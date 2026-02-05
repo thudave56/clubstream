@@ -17,9 +17,41 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
+  const [oauthLoading, setOauthLoading] = useState(false);
+  const [oauthMessage, setOauthMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   useEffect(() => {
     loadSettings();
+
+    // Check for OAuth result in URL
+    const params = new URLSearchParams(window.location.search);
+    const oauthResult = params.get("oauth");
+
+    if (oauthResult === "success") {
+      setOauthMessage({
+        type: "success",
+        text: "YouTube connected successfully!"
+      });
+      loadSettings(); // Refresh settings to show connected state
+    } else if (oauthResult === "denied") {
+      setOauthMessage({
+        type: "error",
+        text: "YouTube connection was denied."
+      });
+    } else if (oauthResult === "error") {
+      setOauthMessage({
+        type: "error",
+        text: "Failed to connect YouTube. Please try again."
+      });
+    }
+
+    // Clear query params
+    if (oauthResult) {
+      window.history.replaceState({}, "", "/admin/dashboard");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -84,6 +116,100 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleConnectYouTube = async () => {
+    setOauthLoading(true);
+    setOauthMessage(null);
+
+    try {
+      const response = await fetch("/api/admin/oauth/connect");
+
+      if (!response.ok) {
+        throw new Error("Failed to initiate OAuth");
+      }
+
+      const data = await response.json();
+
+      // Open OAuth in popup
+      const width = 600;
+      const height = 700;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+
+      window.open(
+        data.authUrl,
+        "YouTube OAuth",
+        `width=${width},height=${height},left=${left},top=${top}`
+      );
+
+      // Poll for status changes
+      const pollInterval = setInterval(async () => {
+        const settings = await fetch("/api/admin/settings");
+        const settingsData = await settings.json();
+
+        if (settingsData.oauthStatus === "connected") {
+          clearInterval(pollInterval);
+          setOauthLoading(false);
+          loadSettings();
+          setOauthMessage({
+            type: "success",
+            text: "YouTube connected!"
+          });
+        } else if (settingsData.oauthStatus === "error") {
+          clearInterval(pollInterval);
+          setOauthLoading(false);
+          setOauthMessage({
+            type: "error",
+            text: "Connection failed."
+          });
+        }
+      }, 2000);
+
+      // Stop polling after 5 minutes
+      setTimeout(() => clearInterval(pollInterval), 5 * 60 * 1000);
+    } catch (err) {
+      setOauthLoading(false);
+      setOauthMessage({
+        type: "error",
+        text: "Failed to start connection."
+      });
+    }
+  };
+
+  const handleDisconnectYouTube = async () => {
+    if (
+      !confirm(
+        "Are you sure you want to disconnect YouTube? This will remove all stored credentials."
+      )
+    ) {
+      return;
+    }
+
+    setOauthLoading(true);
+
+    try {
+      const response = await fetch("/api/admin/oauth/disconnect", {
+        method: "POST"
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to disconnect");
+      }
+
+      await loadSettings();
+      setOauthMessage({
+        type: "success",
+        text: "YouTube disconnected."
+      });
+    } catch (err) {
+      setOauthMessage({
+        type: "error",
+        text: "Failed to disconnect."
+      });
+    } finally {
+      setOauthLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -128,6 +254,19 @@ export default function AdminDashboard() {
         {/* OAuth Status */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
           <h2 className="text-xl font-semibold">YouTube OAuth Status</h2>
+
+          {oauthMessage && (
+            <div
+              className={`mt-4 rounded-lg border p-3 text-sm ${
+                oauthMessage.type === "success"
+                  ? "border-green-900 bg-green-900/20 text-green-400"
+                  : "border-red-900 bg-red-900/20 text-red-400"
+              }`}
+            >
+              {oauthMessage.text}
+            </div>
+          )}
+
           <div className="mt-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Status</span>
@@ -135,6 +274,10 @@ export default function AdminDashboard() {
                 className={`rounded-full px-3 py-1 text-sm font-medium ${
                   settings.oauthStatus === "connected"
                     ? "bg-green-900/40 text-green-400"
+                    : settings.oauthStatus === "error"
+                    ? "bg-red-900/40 text-red-400"
+                    : settings.oauthStatus === "connecting"
+                    ? "bg-yellow-900/40 text-yellow-400"
                     : "bg-slate-800 text-slate-400"
                 }`}
               >
@@ -150,12 +293,27 @@ export default function AdminDashboard() {
               </div>
             )}
             <div className="pt-2">
-              <button
-                disabled
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-500"
-              >
-                Connect YouTube (Coming in PR #3)
-              </button>
+              {settings.oauthStatus === "connected" ? (
+                <button
+                  onClick={handleDisconnectYouTube}
+                  disabled={oauthLoading}
+                  className="w-full rounded-lg border border-red-700 bg-red-900/20 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-900/40 disabled:opacity-50"
+                >
+                  {oauthLoading ? "Disconnecting..." : "Disconnect YouTube"}
+                </button>
+              ) : (
+                <button
+                  onClick={handleConnectYouTube}
+                  disabled={oauthLoading}
+                  className="w-full rounded-lg border border-blue-700 bg-blue-900/20 px-4 py-2 text-sm font-medium text-blue-400 transition-colors hover:bg-blue-900/40 disabled:opacity-50"
+                >
+                  {oauthLoading
+                    ? "Connecting..."
+                    : settings.oauthStatus === "error"
+                    ? "Reconnect YouTube"
+                    : "Connect YouTube"}
+                </button>
+              )}
             </div>
           </div>
         </section>
