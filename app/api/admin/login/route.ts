@@ -99,18 +99,22 @@ export async function POST(request: NextRequest) {
       detail: { ip }
     });
 
-    // Create response and set cookie
+    // Create response and set cookie using standard Set-Cookie header
     const response = NextResponse.json({ success: true });
-    response.cookies.set("admin_session", sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 24 * 60 * 60, // 24 hours in seconds
-      path: "/"
-    });
+
+    const cookieValue = [
+      `admin_session=${sessionToken}`,
+      'Path=/',
+      'HttpOnly',
+      'SameSite=Lax',
+      `Max-Age=${24 * 60 * 60}`,
+      process.env.NODE_ENV === "production" ? 'Secure' : ''
+    ].filter(Boolean).join('; ');
+
+    response.headers.set('Set-Cookie', cookieValue);
 
     console.log("[LOGIN] Setting cookie with token:", sessionToken.substring(0, 10) + "...");
-    console.log("[LOGIN] Cookie secure:", process.env.NODE_ENV === "production");
+    console.log("[LOGIN] Cookie value:", cookieValue);
 
     return response;
   } catch (error) {
