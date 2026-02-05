@@ -109,6 +109,9 @@ export async function POST(request: NextRequest) {
       path: "/"
     });
 
+    console.log("[LOGIN] Setting cookie with token:", sessionToken.substring(0, 10) + "...");
+    console.log("[LOGIN] Cookie secure:", process.env.NODE_ENV === "production");
+
     return response;
   } catch (error) {
     console.error("Admin login error:", error);
