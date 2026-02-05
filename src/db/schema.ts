@@ -97,6 +97,9 @@ export const adminSettings = pgTable("admin_settings", {
   createPinHash: text("create_pin_hash"),
   oauthStatus: oauthStatusEnum("oauth_status").default("disconnected").notNull(),
   channelId: text("channel_id"),
+  youtubeOauthAccessToken: text("youtube_oauth_access_token"),
+  youtubeOauthRefreshToken: text("youtube_oauth_refresh_token"),
+  tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
 });
@@ -111,6 +114,12 @@ export const auditLog = pgTable("audit_log", {
 export const sessions = pgTable("sessions", {
   id: uuid("id").defaultRandom().primaryKey(),
   sessionToken: text("session_token").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull()
+});
+
+export const oauthStates = pgTable("oauth_states", {
+  state: text("state").primaryKey(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull()
 });
