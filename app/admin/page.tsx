@@ -1,24 +1,42 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { loginAction } from "./actions";
+import { useState, FormEvent } from "react";
+import { useRouter } from "next/navigation";
 
 export default function AdminLoginPage() {
+  const router = useRouter();
+  const [pin, setPin] = useState("");
   const [error, setError] = useState("");
-  const [isPending, startTransition] = useTransition();
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (formData: FormData) => {
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
     setError("");
+    setLoading(true);
 
-    startTransition(async () => {
-      const result = await loginAction(formData);
+    try {
+      const response = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
 
-      // If there's an error, display it
-      // If successful, the server action will redirect
-      if (result.error) {
-        setError(result.error);
+      const data = await response.json();
+
+      if (response.ok) {
+        // Navigate to dashboard, then refresh to ensure cookies are loaded
+        router.push("/admin/dashboard");
+        router.refresh();
+      } else if (response.status === 429) {
+        setError(`Too many attempts. Please try again in ${data.retryAfter} seconds.`);
+      } else {
+        setError(data.error || "Login failed");
       }
-    });
+    } catch (err) {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -31,20 +49,21 @@ export default function AdminLoginPage() {
           </p>
         </div>
 
-        <form action={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <label htmlFor="pin" className="block text-sm font-medium">
               Admin PIN
             </label>
             <input
               id="pin"
-              name="pin"
               type="password"
               inputMode="numeric"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
               className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="Enter PIN"
               required
-              disabled={isPending}
+              disabled={loading}
               autoFocus
             />
           </div>
@@ -57,10 +76,10 @@ export default function AdminLoginPage() {
 
           <button
             type="submit"
-            disabled={isPending}
+            disabled={loading || !pin}
             className="w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isPending ? "Signing in..." : "Sign In"}
+            {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
