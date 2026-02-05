@@ -103,15 +103,13 @@ export async function loginAction(formData: FormData): Promise<LoginResult> {
       path: "/"
     });
 
-    // Server-side redirect
-    redirect("/admin/dashboard");
   } catch (error) {
-    // If error is from redirect(), re-throw it (redirect uses throw internally)
-    if (error instanceof Error && error.message === "NEXT_REDIRECT") {
-      throw error;
-    }
-
     console.error("Admin login error:", error);
     return { error: "Internal server error" };
   }
+
+  // Server-side redirect happens after try-catch
+  // This ensures any errors during authentication are handled,
+  // but redirect() can throw its special error without being caught
+  redirect("/admin/dashboard");
 }
