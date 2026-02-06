@@ -269,6 +269,8 @@ describe("stream-pool", () => {
       const result = await reserveStream("match-123");
 
       expect(result).toEqual({
+        id: "pool-id-1",
+        youtubeStreamId: "youtube-stream-1",
         streamId: "youtube-stream-1",
         ingestAddress: "rtmp://test.youtube.com/live2",
         streamName: "test-key-1"
