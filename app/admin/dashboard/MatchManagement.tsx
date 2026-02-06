@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { LarixQRCode } from "../../components/LarixQRCode";
+import { StatusBadge } from "../../components/StatusBadge";
 
 interface Team {
   id: string;
@@ -261,24 +262,6 @@ export default function MatchManagement({ onPoolStatusChange }: MatchManagementP
     }
   };
 
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case "draft":
-        return "bg-slate-800 text-slate-400";
-      case "scheduled":
-        return "bg-yellow-900/40 text-yellow-400";
-      case "ready":
-        return "bg-blue-900/40 text-blue-400";
-      case "live":
-        return "bg-green-900/40 text-green-400";
-      case "ended":
-        return "bg-slate-800 text-slate-400";
-      case "canceled":
-        return "bg-red-900/40 text-red-400";
-      default:
-        return "bg-slate-800 text-slate-400";
-    }
-  };
 
   return (
     <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
@@ -496,13 +479,7 @@ export default function MatchManagement({ onPoolStatusChange }: MatchManagementP
                 </div>
 
                 <div className="flex items-center space-x-4">
-                  <span
-                    className={`rounded-full px-3 py-1 text-sm font-medium ${getStatusBadgeClass(
-                      match.status
-                    )}`}
-                  >
-                    {match.status}
-                  </span>
+                  <StatusBadge status={match.status} />
 
                   {["draft", "scheduled", "ready"].includes(match.status) && (
                     <button

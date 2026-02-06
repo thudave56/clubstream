@@ -79,3 +79,53 @@ export function clearAttempts(ip: string): void {
 export function resetAllAttempts(): void {
   attempts.clear();
 }
+
+/**
+ * Factory function to create a rate limiter with custom configuration.
+ * Each instance maintains its own independent state.
+ */
+export function createRateLimiter(options: {
+  maxAttempts: number;
+  windowMs: number;
+}) {
+  const store = new Map<string, RateLimitEntry>();
+
+  return {
+    isRateLimited(key: string): boolean {
+      const now = Date.now();
+      const entry = store.get(key);
+      if (!entry) return false;
+      if (now > entry.resetAt) {
+        store.delete(key);
+        return false;
+      }
+      return entry.count >= options.maxAttempts;
+    },
+
+    recordAttempt(key: string): void {
+      const now = Date.now();
+      const entry = store.get(key);
+      if (!entry || now > entry.resetAt) {
+        store.set(key, { count: 1, resetAt: now + options.windowMs });
+      } else {
+        entry.count++;
+      }
+    },
+
+    getResetTime(key: string): number {
+      const entry = store.get(key);
+      if (!entry) return 0;
+      const now = Date.now();
+      if (now > entry.resetAt) return 0;
+      return Math.ceil((entry.resetAt - now) / 1000);
+    },
+
+    clearAttempts(key: string): void {
+      store.delete(key);
+    },
+
+    resetAll(): void {
+      store.clear();
+    }
+  };
+}
