@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LarixQRCode } from "@/components/LarixQRCode";
+import { LarixQRCode } from "../../components/LarixQRCode";
 
 interface Team {
   id: string;
