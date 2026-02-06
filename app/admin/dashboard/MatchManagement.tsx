@@ -29,6 +29,7 @@ interface FormData {
   teamId: string;
   opponentName: string;
   tournamentId?: string;
+  tournamentName?: string;
   scheduledStart?: string;
   courtLabel?: string;
   privacyStatus: "public" | "unlisted";
@@ -60,6 +61,7 @@ export default function MatchManagement({ onPoolStatusChange }: MatchManagementP
     opponentName: "",
     privacyStatus: "unlisted"
   });
+  const [tournamentSelection, setTournamentSelection] = useState("");
 
   // Load teams, tournaments, and matches on mount
   useEffect(() => {
@@ -157,7 +159,12 @@ export default function MatchManagement({ onPoolStatusChange }: MatchManagementP
       const response = await fetch("/api/admin/matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          scheduledStart: formData.scheduledStart
+            ? new Date(formData.scheduledStart).toISOString()
+            : undefined
+        })
       });
 
       if (!response.ok) {
@@ -172,9 +179,24 @@ export default function MatchManagement({ onPoolStatusChange }: MatchManagementP
         text: "Match created! Scan the QR code to start streaming. It will go live automatically."
       });
 
+      const ua = navigator.userAgent;
+      const platform =
+        /iPhone|iPad|iPod/i.test(ua)
+          ? "ios"
+          : /Android/i.test(ua)
+          ? "android"
+          : "";
+      const larixQuery = platform ? `?platform=${platform}` : "";
+      const larixResponse = await fetch(
+        `/api/matches/${data.match.id}/larix${larixQuery}`
+      );
+      const larixPayload = larixResponse.ok
+        ? await larixResponse.json()
+        : { larixUrl: data.larixUrl };
+
       setLarixData({
-        url: data.larixUrl,
-        title: `${formData.opponentName} Match`,
+        url: larixPayload.larixUrl || data.larixUrl,
+        title: `${teams.find((team) => team.id === formData.teamId)?.displayName || "Team"} vs ${formData.opponentName}`,
         matchId: data.match.id
       });
 
@@ -187,6 +209,7 @@ export default function MatchManagement({ onPoolStatusChange }: MatchManagementP
         opponentName: "",
         privacyStatus: "unlisted"
       });
+      setTournamentSelection("");
 
       // Reload matches and update pool status
       loadMatches();
@@ -319,13 +342,24 @@ export default function MatchManagement({ onPoolStatusChange }: MatchManagementP
             </label>
             <select
               id="tournamentId"
-              value={formData.tournamentId || ""}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  tournamentId: e.target.value || undefined
-                })
-              }
+              value={tournamentSelection}
+              onChange={(e) => {
+                const value = e.target.value;
+                setTournamentSelection(value);
+                if (value === "other" || value === "") {
+                  setFormData({
+                    ...formData,
+                    tournamentId: undefined,
+                    tournamentName: value === "other" ? "" : undefined
+                  });
+                } else {
+                  setFormData({
+                    ...formData,
+                    tournamentId: value,
+                    tournamentName: undefined
+                  });
+                }
+              }}
               className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-white"
               disabled={loading}
             >
@@ -335,8 +369,33 @@ export default function MatchManagement({ onPoolStatusChange }: MatchManagementP
                   {tournament.name}
                 </option>
               ))}
+              <option value="other">Other (type name)</option>
             </select>
           </div>
+
+          {tournamentSelection === "other" && (
+            <div>
+              <label htmlFor="tournamentName" className="block text-sm font-medium mb-2">
+                Tournament Name
+              </label>
+              <input
+                id="tournamentName"
+                type="text"
+                value={formData.tournamentName || ""}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    tournamentName: e.target.value || undefined
+                  })
+                }
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-white"
+                disabled={loading}
+                required={tournamentSelection === "other"}
+                maxLength={120}
+                placeholder="e.g. NEQ Boston"
+              />
+            </div>
+          )}
 
           <div>
             <label htmlFor="courtLabel" className="block text-sm font-medium mb-2">

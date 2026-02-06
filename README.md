@@ -146,7 +146,7 @@ The default admin PIN is set during database seeding. You can customize it by:
    - Enable/disable "Require PIN for Match Creation"
    - View audit logs (coming soon)
 
-### For Parents (Coming Soon)
+### For Parents
 
 1. **Create a Match**
    - Select your team
@@ -163,6 +163,36 @@ The default admin PIN is set during database seeding. You can customize it by:
    - Scores appear on stream overlay in real-time
 
 ---
+
+## Scoring + Overlay (Mobile-First)
+
+The scoring UI and overlay are optimized for phones and tablets.
+
+### Scoring
+
+- Open the match link (e.g. `/m/:id`)
+- Tap **Open Scoring**
+- Use the big buttons to update scores
+- Rules default to best of 3, sets to 25, final set to 15, win by 2
+- Optional overrides are available on the match page
+
+### Overlay (Larix)
+
+Overlay is burned into the live stream before it reaches YouTube.
+
+**Recommended path (one tap):**
+1. Open the match page
+2. Tap **Open Larix Launcher**
+3. Larix opens with the overlay URL already configured
+
+**Manual path:**
+1. Open the overlay URL: `/m/:id/overlay?mode=larix`
+2. In Larix, add a web overlay and paste the URL
+3. Start streaming
+
+Notes:
+- The overlay uses a transparent background when `mode=larix` is set.
+- Anyone with the match link can access scoring and overlay for now.
 
 ## 🛠️ Development
 

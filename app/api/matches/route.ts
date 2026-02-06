@@ -61,7 +61,8 @@ export async function GET(request: Request) {
 
 /** Extended schema for public match creation (adds optional create_pin) */
 const publicCreateMatchSchema = createMatchSchema.extend({
-  create_pin: z.string().min(4).max(20).optional()
+  create_pin: z.string().min(4).max(20).optional(),
+  tournamentName: z.string().min(1).max(120).optional()
 });
 
 /**
