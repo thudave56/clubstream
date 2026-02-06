@@ -3,69 +3,53 @@ import { generateLarixUrl } from "./match-creation";
 
 describe("match-creation", () => {
   describe("generateLarixUrl", () => {
-    it("should generate valid larix:// URL", () => {
+    it("should generate valid larix:// Grove URL", () => {
       const url = generateLarixUrl(
         "rtmp://a.rtmp.youtube.com/live2",
         "test-stream-key",
         "Test Match"
       );
 
-      expect(url).toMatch(/^larix:\/\/set\//);
+      expect(url).toMatch(/^larix:\/\/set\/v1\?/);
     });
 
-    it("should have decodable base64 payload", () => {
-      const url = generateLarixUrl(
-        "rtmp://a.rtmp.youtube.com/live2",
-        "test-stream-key",
-        "Test Match"
-      );
-
-      const base64Part = url.replace("larix://set/", "");
-      const decoded = Buffer.from(base64Part, "base64").toString("utf-8");
-      const config = JSON.parse(decoded);
-
-      expect(config).toHaveProperty("connections");
-      expect(config).toHaveProperty("video");
-      expect(config).toHaveProperty("audio");
-      expect(config.connections[0].url).toContain("test-stream-key");
-    });
-
-    it("should include correct encoder settings", () => {
-      const url = generateLarixUrl(
-        "rtmp://a.rtmp.youtube.com/live2",
-        "test-stream-key",
-        "Test Match"
-      );
-
-      const base64Part = url.replace("larix://set/", "");
-      const config = JSON.parse(Buffer.from(base64Part, "base64").toString("utf-8"));
-
-      expect(config.video).toEqual({
-        resolution: "1280x720",
-        fps: 30,
-        bitrate: 2500000
-      });
-
-      expect(config.audio).toEqual({
-        bitrate: 128000
-      });
-    });
-
-    it("should include RTMP URL with stream key", () => {
+    it("should include connection URL with stream key", () => {
       const url = generateLarixUrl(
         "rtmp://a.rtmp.youtube.com/live2",
         "test-stream-key-xyz",
         "Test Match"
       );
 
-      const base64Part = url.replace("larix://set/", "");
-      const config = JSON.parse(Buffer.from(base64Part, "base64").toString("utf-8"));
+      const params = new URLSearchParams(url.replace("larix://set/v1?", ""));
+      const connUrl = params.get("conn[][url]");
 
-      expect(config.connections[0].url).toBe(
-        "rtmp://a.rtmp.youtube.com/live2/test-stream-key-xyz"
+      expect(connUrl).toBe("rtmp://a.rtmp.youtube.com/live2/test-stream-key-xyz");
+    });
+
+    it("should include connection name from match title", () => {
+      const url = generateLarixUrl(
+        "rtmp://a.rtmp.youtube.com/live2",
+        "test-stream-key",
+        "Lions vs Tigers"
       );
-      expect(config.connections[0].autoReconnect).toBe(true);
-      expect(config.connections[0].record).toBe(true);
+
+      const params = new URLSearchParams(url.replace("larix://set/v1?", ""));
+      expect(params.get("conn[][name]")).toBe("Lions vs Tigers");
+    });
+
+    it("should include encoder settings", () => {
+      const url = generateLarixUrl(
+        "rtmp://a.rtmp.youtube.com/live2",
+        "test-stream-key",
+        "Test Match"
+      );
+
+      const params = new URLSearchParams(url.replace("larix://set/v1?", ""));
+
+      expect(params.get("enc[vid][res]")).toBe("1280x720");
+      expect(params.get("enc[vid][fps]")).toBe("30");
+      expect(params.get("enc[vid][bitrate]")).toBe("2500");
+      expect(params.get("enc[aud][bitrate]")).toBe("128");
     });
   });
 

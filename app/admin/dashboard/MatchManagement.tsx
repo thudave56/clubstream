@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { LarixQRCode } from "../../components/LarixQRCode";
 
 interface Team {
@@ -33,7 +33,11 @@ interface FormData {
   privacyStatus: "public" | "unlisted";
 }
 
-export default function MatchManagement() {
+interface MatchManagementProps {
+  onPoolStatusChange?: () => void;
+}
+
+export default function MatchManagement({ onPoolStatusChange }: MatchManagementProps) {
   const [teams, setTeams] = useState<Team[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -45,7 +49,10 @@ export default function MatchManagement() {
   const [larixData, setLarixData] = useState<{
     url: string;
     title: string;
+    matchId: string;
   } | null>(null);
+  const [streamStatus, setStreamStatus] = useState<string | null>(null);
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
     teamId: "",
@@ -58,7 +65,56 @@ export default function MatchManagement() {
     loadTeams();
     loadTournaments();
     loadMatches();
+    return () => stopPolling();
   }, []);
+
+  const stopPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+
+  const startAutoLivePolling = (matchId: string) => {
+    stopPolling();
+    setStreamStatus("Waiting for stream...");
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/admin/matches/${matchId}/auto-live`, {
+          method: "POST"
+        });
+        const data = await response.json();
+
+        if (data.status === "live") {
+          stopPolling();
+          setStreamStatus(null);
+          setLarixData(null);
+          setMessage({ type: "success", text: "Match is now LIVE!" });
+          loadMatches();
+          onPoolStatusChange?.();
+        } else if (data.status === "already_live") {
+          stopPolling();
+          setStreamStatus(null);
+        } else if (["ended", "canceled"].includes(data.status)) {
+          stopPolling();
+          setStreamStatus(null);
+        } else if (data.status === "transition_failed") {
+          setStreamStatus(`Transition failed: ${data.error}`);
+        } else {
+          // Still waiting
+          const statusLabel = data.streamStatus === "ready"
+            ? "Stream ready, waiting for Larix data..."
+            : data.streamStatus === "inactive"
+            ? "Waiting for Larix to connect..."
+            : `Stream: ${data.streamStatus}`;
+          setStreamStatus(statusLabel);
+        }
+      } catch {
+        setStreamStatus("Checking stream...");
+      }
+    }, 5000);
+  };
 
   const loadTeams = async () => {
     try {
@@ -112,13 +168,17 @@ export default function MatchManagement() {
 
       setMessage({
         type: "success",
-        text: "Match created successfully!"
+        text: "Match created! Scan the QR code to start streaming. It will go live automatically."
       });
 
       setLarixData({
         url: data.larixUrl,
-        title: `${formData.opponentName} Match`
+        title: `${formData.opponentName} Match`,
+        matchId: data.match.id
       });
+
+      // Start polling for auto-live transition
+      startAutoLivePolling(data.match.id);
 
       // Reset form
       setFormData({
@@ -127,8 +187,9 @@ export default function MatchManagement() {
         privacyStatus: "unlisted"
       });
 
-      // Reload matches
+      // Reload matches and update pool status
       loadMatches();
+      onPoolStatusChange?.();
     } catch (error) {
       setMessage({
         type: "error",
@@ -155,10 +216,47 @@ export default function MatchManagement() {
 
       setMessage({ type: "success", text: "Match canceled" });
       loadMatches();
+      onPoolStatusChange?.();
     } catch (error) {
       setMessage({
         type: "error",
         text: error instanceof Error ? error.message : "Failed to cancel match"
+      });
+    }
+  };
+
+  const handleStatusTransition = async (matchId: string, newStatus: string) => {
+    const labels: Record<string, string> = {
+      live: "go live",
+      ended: "end this match"
+    };
+
+    if (!confirm(`Are you sure you want to ${labels[newStatus] || newStatus}?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/matches/${matchId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || `Failed to transition to ${newStatus}`);
+      }
+
+      setMessage({
+        type: "success",
+        text: newStatus === "live" ? "Match is now LIVE!" : "Match ended"
+      });
+      loadMatches();
+      onPoolStatusChange?.();
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : `Failed to ${newStatus}`
       });
     }
   };
@@ -355,6 +453,11 @@ export default function MatchManagement() {
         {larixData && (
           <div className="mt-6">
             <LarixQRCode larixUrl={larixData.url} matchTitle={larixData.title} />
+            {streamStatus && (
+              <div className="mt-3 rounded-lg border border-yellow-900 bg-yellow-900/20 p-3 text-center text-sm text-yellow-400">
+                {streamStatus}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -362,6 +465,18 @@ export default function MatchManagement() {
       {/* Match List */}
       <div>
         <h3 className="mb-4 text-lg font-medium">Recent Matches</h3>
+
+        {message && (
+          <div
+            className={`mb-4 rounded-lg border p-3 text-sm ${
+              message.type === "success"
+                ? "border-green-900 bg-green-900/20 text-green-400"
+                : "border-red-900 bg-red-900/20 text-red-400"
+            }`}
+          >
+            {message.text}
+          </div>
+        )}
 
         {matches.length === 0 ? (
           <p className="text-slate-400 text-sm">No matches created yet</p>
@@ -389,7 +504,25 @@ export default function MatchManagement() {
                     {match.status}
                   </span>
 
-                  {match.status === "draft" && (
+                  {["draft", "scheduled", "ready"].includes(match.status) && (
+                    <button
+                      onClick={() => handleStatusTransition(match.id, "live")}
+                      className="rounded bg-green-700 px-3 py-1 text-sm font-medium text-white hover:bg-green-600"
+                    >
+                      Go Live
+                    </button>
+                  )}
+
+                  {match.status === "live" && (
+                    <button
+                      onClick={() => handleStatusTransition(match.id, "ended")}
+                      className="rounded bg-slate-700 px-3 py-1 text-sm font-medium text-white hover:bg-slate-600"
+                    >
+                      End
+                    </button>
+                  )}
+
+                  {!["live", "ended", "canceled"].includes(match.status) && (
                     <button
                       onClick={() => handleCancel(match.id)}
                       className="rounded px-3 py-1 text-sm text-red-400 hover:bg-red-900/20"
@@ -405,7 +538,7 @@ export default function MatchManagement() {
                       rel="noopener noreferrer"
                       className="rounded px-3 py-1 text-sm text-blue-400 hover:bg-blue-900/20"
                     >
-                      View Stream
+                      Watch
                     </a>
                   )}
                 </div>

@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAuthenticated } from "@/lib/session";
-import { cancelMatch } from "@/lib/match-creation";
+import {
+  cancelMatch,
+  transitionBroadcast,
+  getYouTubeStreamStatus
+} from "@/lib/match-creation";
 import { db } from "@/db";
 import { matches, streamPool, auditLog } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -105,25 +109,86 @@ export async function PUT(
 
     // Handle stream pool status updates based on match status
     if (validated.status) {
-      if (validated.status === "live" && existingMatch.streamPoolId) {
+      if (validated.status === "live") {
+        // Transition YouTube broadcast to live
+        if (existingMatch.youtubeBroadcastId) {
+          // First, check if the YouTube stream is receiving data
+          const streamRecord = existingMatch.streamPoolId
+            ? await db
+                .select()
+                .from(streamPool)
+                .where(eq(streamPool.id, existingMatch.streamPoolId))
+                .limit(1)
+            : [];
+
+          if (streamRecord.length > 0) {
+            const ytStreamStatus = await getYouTubeStreamStatus(
+              streamRecord[0].youtubeStreamId
+            );
+            console.log("YouTube stream status:", ytStreamStatus);
+
+            if (ytStreamStatus.status !== "active") {
+              return NextResponse.json(
+                {
+                  error: "Stream not active",
+                  message: `YouTube stream status: "${ytStreamStatus.status}". ` +
+                    `Start streaming from Larix and wait 10-15 seconds for YouTube to detect the stream before going live.`
+                },
+                { status: 400 }
+              );
+            }
+          }
+
+          try {
+            // Transition to "testing" first, then "live"
+            await transitionBroadcast(existingMatch.youtubeBroadcastId, "testing");
+            // Wait for YouTube to process the testing transition
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+            await transitionBroadcast(existingMatch.youtubeBroadcastId, "live");
+          } catch (error) {
+            console.error("Broadcast transition failed:", error);
+            return NextResponse.json(
+              {
+                error: "Failed to go live on YouTube",
+                message: error instanceof Error ? error.message : "Unknown error"
+              },
+              { status: 400 }
+            );
+          }
+        }
+
         // Update stream to in_use
-        await db
-          .update(streamPool)
-          .set({
-            status: "in_use",
-            updatedAt: new Date()
-          })
-          .where(eq(streamPool.id, existingMatch.streamPoolId));
-      } else if (validated.status === "ended" && existingMatch.streamPoolId) {
+        if (existingMatch.streamPoolId) {
+          await db
+            .update(streamPool)
+            .set({
+              status: "in_use",
+              updatedAt: new Date()
+            })
+            .where(eq(streamPool.id, existingMatch.streamPoolId));
+        }
+      } else if (validated.status === "ended") {
+        // End YouTube broadcast
+        if (existingMatch.youtubeBroadcastId) {
+          try {
+            await transitionBroadcast(existingMatch.youtubeBroadcastId, "complete");
+          } catch (error) {
+            console.error("Failed to end YouTube broadcast:", error);
+            // Continue with local end even if YouTube fails
+          }
+        }
+
         // Release stream back to pool
-        await db
-          .update(streamPool)
-          .set({
-            status: "available",
-            reservedMatchId: null,
-            updatedAt: new Date()
-          })
-          .where(eq(streamPool.id, existingMatch.streamPoolId));
+        if (existingMatch.streamPoolId) {
+          await db
+            .update(streamPool)
+            .set({
+              status: "available",
+              reservedMatchId: null,
+              updatedAt: new Date()
+            })
+            .where(eq(streamPool.id, existingMatch.streamPoolId));
+        }
       }
     }
 

@@ -530,7 +530,9 @@ export default function AdminDashboard() {
         </section>
 
         {/* Match Management */}
-        {settings?.oauthStatus === "connected" && <MatchManagement />}
+        {settings?.oauthStatus === "connected" && (
+          <MatchManagement onPoolStatusChange={loadPoolStatus} />
+        )}
 
         {/* Audit Log */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">

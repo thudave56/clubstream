@@ -151,12 +151,10 @@ export async function getPoolStatus(): Promise<PoolStatus> {
 
 /**
  * Reserve an available stream for a match
- * @param matchId - UUID of the match reserving the stream
  * @param tx - Optional Drizzle transaction context
  * @returns Stream data with pool record ID if reservation successful, null if no streams available
  */
 export async function reserveStream(
-  matchId: string,
   tx?: any
 ): Promise<ReservedStreamData | null> {
   const dbContext = tx || db;
@@ -174,12 +172,12 @@ export async function reserveStream(
 
   const stream = availableStreams[0];
 
-  // Update to reserved status
+  // Update to reserved status (without setting match ID yet to avoid FK constraint violation)
   await dbContext
     .update(streamPool)
     .set({
       status: "reserved",
-      reservedMatchId: matchId,
+      reservedMatchId: null,
       updatedAt: new Date()
     })
     .where(eq(streamPool.id, stream.id));
@@ -191,6 +189,24 @@ export async function reserveStream(
     ingestAddress: stream.ingestAddress,
     streamName: stream.streamName
   };
+}
+
+/**
+ * Update stream reservation with match ID after match is created
+ * @param streamPoolId - Database ID of stream pool record
+ * @param matchId - UUID of the match
+ */
+export async function updateStreamReservation(
+  streamPoolId: string,
+  matchId: string
+): Promise<void> {
+  await db
+    .update(streamPool)
+    .set({
+      reservedMatchId: matchId,
+      updatedAt: new Date()
+    })
+    .where(eq(streamPool.id, streamPoolId));
 }
 
 /**

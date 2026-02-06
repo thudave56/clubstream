@@ -266,7 +266,7 @@ describe("stream-pool", () => {
         set: mockUpdate().set
       });
 
-      const result = await reserveStream("match-123");
+      const result = await reserveStream();
 
       expect(result).toEqual({
         id: "pool-id-1",
@@ -290,7 +290,7 @@ describe("stream-pool", () => {
         from: mockSelect().from
       });
 
-      const result = await reserveStream("match-123");
+      const result = await reserveStream();
 
       expect(result).toBeNull();
     });

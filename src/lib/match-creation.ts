@@ -7,6 +7,7 @@ import {
   reserveStream,
   releaseStream,
   getStreamByMatchId,
+  updateStreamReservation,
   type ReservedStreamData
 } from "./stream-pool";
 
@@ -41,7 +42,7 @@ export type CreateMatchParams = z.infer<typeof createMatchSchema>;
 export interface BroadcastDetails {
   title: string;
   description?: string;
-  scheduledStart?: Date;
+  scheduledStart: Date; // Required by YouTube API when binding to a stream
   privacyStatus: "public" | "unlisted";
 }
 
@@ -75,19 +76,17 @@ export async function createYouTubeBroadcast(
   try {
     const youtube = await getYouTubeClient();
 
+    // Step 1: Create the broadcast
     const response = await youtube.liveBroadcasts.insert({
       part: ["snippet", "contentDetails", "status"],
       requestBody: {
         snippet: {
           title: matchDetails.title,
           description: matchDetails.description || "",
-          scheduledStartTime: matchDetails.scheduledStart?.toISOString()
+          scheduledStartTime: matchDetails.scheduledStart.toISOString()
         },
         status: {
           privacyStatus: matchDetails.privacyStatus
-        },
-        contentDetails: {
-          boundStreamId: streamId
         }
       }
     });
@@ -97,6 +96,16 @@ export async function createYouTubeBroadcast(
     }
 
     const broadcastId = response.data.id;
+
+    // Step 2: Explicitly bind the stream to the broadcast
+    await youtube.liveBroadcasts.bind({
+      id: broadcastId,
+      part: ["id", "contentDetails"],
+      streamId: streamId
+    });
+
+    console.log(`Broadcast ${broadcastId} bound to stream ${streamId}`);
+
     const watchUrl = `https://youtube.com/watch?v=${broadcastId}`;
 
     return { broadcastId, watchUrl };
@@ -104,6 +113,63 @@ export async function createYouTubeBroadcast(
     console.error("Failed to create YouTube broadcast:", error);
     throw new Error(
       `YouTube broadcast creation failed: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
+}
+
+/**
+ * Check YouTube stream status to verify it's receiving data
+ * @param streamId - YouTube stream ID
+ * @returns Stream status info
+ */
+export async function getYouTubeStreamStatus(
+  streamId: string
+): Promise<{ status: string; healthStatus: string }> {
+  try {
+    const youtube = await getYouTubeClient();
+    const response = await youtube.liveStreams.list({
+      part: ["status"],
+      id: [streamId]
+    });
+
+    const stream = response.data.items?.[0];
+    if (!stream) {
+      return { status: "not_found", healthStatus: "unknown" };
+    }
+
+    return {
+      status: stream.status?.streamStatus || "unknown",
+      healthStatus: stream.status?.healthStatus?.status || "unknown"
+    };
+  } catch (error) {
+    console.error("Failed to check stream status:", error);
+    return { status: "error", healthStatus: "error" };
+  }
+}
+
+/**
+ * Transition a YouTube broadcast status
+ * @param broadcastId - YouTube broadcast ID
+ * @param status - Target status: "testing", "live", or "complete"
+ * @throws Error if transition fails
+ */
+export async function transitionBroadcast(
+  broadcastId: string,
+  status: "testing" | "live" | "complete"
+): Promise<void> {
+  try {
+    const youtube = await getYouTubeClient();
+    await youtube.liveBroadcasts.transition({
+      broadcastStatus: status,
+      id: broadcastId,
+      part: ["status"]
+    });
+  } catch (error) {
+    console.error(`Failed to transition broadcast to ${status}:`, error);
+    throw new Error(
+      `Broadcast transition to ${status} failed: ${
         error instanceof Error ? error.message : "Unknown error"
       }`
     );
@@ -125,32 +191,17 @@ export function generateLarixUrl(
   // Combine RTMP URL and stream key
   const rtmpUrl = `${ingestAddress}/${streamName}`;
 
-  // Larix configuration object
-  const config = {
-    connections: [
-      {
-        url: rtmpUrl,
-        name: "ClubStream Match",
-        autoReconnect: true,
-        record: true
-      }
-    ],
-    video: {
-      resolution: "1280x720",
-      fps: 30,
-      bitrate: 2500000 // 2.5 Mbps
-    },
-    audio: {
-      bitrate: 128000 // 128 kbps
-    },
-    title: matchTitle
-  };
+  // Build Larix Grove deep link with URL query parameters
+  // See: https://softvelum.com/larix/grove/
+  const params = new URLSearchParams();
+  params.append("conn[][url]", rtmpUrl);
+  params.append("conn[][name]", matchTitle);
+  params.append("enc[vid][res]", "1280x720");
+  params.append("enc[vid][fps]", "30");
+  params.append("enc[vid][bitrate]", "2500"); // Kbps
+  params.append("enc[aud][bitrate]", "128");  // Kbps
 
-  // Encode as base64
-  const configJson = JSON.stringify(config);
-  const base64 = Buffer.from(configJson).toString("base64");
-
-  return `larix://set/${base64}`;
+  return `larix://set/v1?${params.toString()}`;
 }
 
 /**
@@ -220,18 +271,17 @@ export async function createMatch(
   let reservedStream: ReservedStreamData | null = null;
 
   try {
-    // Generate a temporary match ID for stream reservation
-    // We'll use this to reserve the stream before creating the match
-    const tempMatchId = crypto.randomUUID();
-
-    // Step 1: Reserve stream from pool
-    reservedStream = await reserveStream(tempMatchId);
+    // Step 1: Reserve stream from pool (without match ID to avoid FK constraint violation)
+    reservedStream = await reserveStream();
 
     if (!reservedStream) {
       throw new NoStreamsAvailableError();
     }
 
     // Step 2: Create YouTube broadcast (external API - cannot be rolled back)
+    // YouTube requires scheduledStartTime when binding to a stream, so default to 5 minutes from now
+    const defaultScheduledStart = new Date(Date.now() + 5 * 60 * 1000);
+
     const broadcastDetails: BroadcastDetails = {
       title: `${team[0].displayName} vs ${validated.opponentName}`,
       description: validated.courtLabel
@@ -239,7 +289,7 @@ export async function createMatch(
         : undefined,
       scheduledStart: validated.scheduledStart
         ? new Date(validated.scheduledStart)
-        : undefined,
+        : defaultScheduledStart,
       privacyStatus: validated.privacyStatus || "unlisted"
     };
 
@@ -270,11 +320,8 @@ export async function createMatch(
 
     const match = insertedMatch[0];
 
-    // Update the stream reservation with the actual match ID
-    await db
-      .update(matches)
-      .set({ id: match.id })
-      .where(eq(matches.id, tempMatchId));
+    // Step 4: Update the stream reservation with the actual match ID now that match exists
+    await updateStreamReservation(reservedStream.id, match.id);
 
     // Generate Larix URL
     const larixUrl = generateLarixUrl(
@@ -340,6 +387,20 @@ export async function cancelMatch(matchId: string): Promise<void> {
     throw new Error(`Match is already ${match.status}`);
   }
 
+  // Delete YouTube broadcast if it exists
+  if (match.youtubeBroadcastId) {
+    try {
+      const youtube = await getYouTubeClient();
+      await youtube.liveBroadcasts.delete({
+        id: match.youtubeBroadcastId
+      });
+    } catch (error) {
+      // Log error but don't fail the cancellation
+      console.error("Failed to delete YouTube broadcast:", error);
+      // Continue with local cancellation even if YouTube API fails
+    }
+  }
+
   // Update match status to canceled
   await db
     .update(matches)
@@ -362,7 +423,8 @@ export async function cancelMatch(matchId: string): Promise<void> {
     action: "match_canceled",
     detail: {
       matchId: match.id,
-      previousStatus: match.status
+      previousStatus: match.status,
+      broadcastDeleted: !!match.youtubeBroadcastId
     }
   });
 }
