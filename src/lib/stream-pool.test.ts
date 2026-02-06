@@ -55,7 +55,7 @@ describe("stream-pool", () => {
         requestBody: {
           snippet: { title: "Test Stream" },
           cdn: {
-            frameRate: "variable",
+            frameRate: "30fps",
             ingestionType: "rtmp",
             resolution: "720p"
           }
