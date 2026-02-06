@@ -49,7 +49,7 @@ export async function createYouTubeStream(title: string): Promise<StreamData> {
           title
         },
         cdn: {
-          frameRate: "variable",
+          frameRate: "30fps",
           ingestionType: "rtmp",
           resolution: "720p"
         }
