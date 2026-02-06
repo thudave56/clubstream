@@ -13,6 +13,14 @@ export interface StreamData {
 }
 
 /**
+ * Extended stream data with database record ID
+ */
+export interface ReservedStreamData extends StreamData {
+  id: string; // Database record ID
+  youtubeStreamId: string; // YouTube stream ID (same as streamId)
+}
+
+/**
  * Result of initializing stream pool
  */
 export interface InitResult {
@@ -143,12 +151,16 @@ export async function getPoolStatus(): Promise<PoolStatus> {
 
 /**
  * Reserve an available stream for a match
- * @param matchId - UUID of the match reserving the stream
- * @returns Stream data if reservation successful, null if no streams available
+ * @param tx - Optional Drizzle transaction context
+ * @returns Stream data with pool record ID if reservation successful, null if no streams available
  */
-export async function reserveStream(matchId: string): Promise<StreamData | null> {
+export async function reserveStream(
+  tx?: any
+): Promise<ReservedStreamData | null> {
+  const dbContext = tx || db;
+
   // Find first available stream
-  const availableStreams = await db
+  const availableStreams = await dbContext
     .select()
     .from(streamPool)
     .where(eq(streamPool.status, "available"))
@@ -160,21 +172,41 @@ export async function reserveStream(matchId: string): Promise<StreamData | null>
 
   const stream = availableStreams[0];
 
-  // Update to reserved status
-  await db
+  // Update to reserved status (without setting match ID yet to avoid FK constraint violation)
+  await dbContext
     .update(streamPool)
     .set({
       status: "reserved",
-      reservedMatchId: matchId,
+      reservedMatchId: null,
       updatedAt: new Date()
     })
     .where(eq(streamPool.id, stream.id));
 
   return {
+    id: stream.id,
+    youtubeStreamId: stream.youtubeStreamId,
     streamId: stream.youtubeStreamId,
     ingestAddress: stream.ingestAddress,
     streamName: stream.streamName
   };
+}
+
+/**
+ * Update stream reservation with match ID after match is created
+ * @param streamPoolId - Database ID of stream pool record
+ * @param matchId - UUID of the match
+ */
+export async function updateStreamReservation(
+  streamPoolId: string,
+  matchId: string
+): Promise<void> {
+  await db
+    .update(streamPool)
+    .set({
+      reservedMatchId: matchId,
+      updatedAt: new Date()
+    })
+    .where(eq(streamPool.id, streamPoolId));
 }
 
 /**
@@ -190,4 +222,21 @@ export async function releaseStream(streamId: string): Promise<void> {
       updatedAt: new Date()
     })
     .where(eq(streamPool.youtubeStreamId, streamId));
+}
+
+/**
+ * Get stream pool record by match ID
+ * @param matchId - Match UUID
+ * @returns Stream pool record or null if not found
+ */
+export async function getStreamByMatchId(
+  matchId: string
+): Promise<typeof streamPool.$inferSelect | null> {
+  const streams = await db
+    .select()
+    .from(streamPool)
+    .where(eq(streamPool.reservedMatchId, matchId))
+    .limit(1);
+
+  return streams.length > 0 ? streams[0] : null;
 }
