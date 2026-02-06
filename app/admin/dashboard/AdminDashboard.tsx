@@ -11,6 +11,15 @@ interface Settings {
   hasCreatePin: boolean;
 }
 
+interface PoolStatus {
+  available: number;
+  reserved: number;
+  in_use: number;
+  stuck: number;
+  disabled: number;
+  total: number;
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -19,6 +28,12 @@ export default function AdminDashboard() {
   const [error, setError] = useState("");
   const [oauthLoading, setOauthLoading] = useState(false);
   const [oauthMessage, setOauthMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [poolStatus, setPoolStatus] = useState<PoolStatus | null>(null);
+  const [poolLoading, setPoolLoading] = useState(false);
+  const [poolMessage, setPoolMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
@@ -36,6 +51,7 @@ export default function AdminDashboard() {
         text: "YouTube connected successfully!"
       });
       loadSettings(); // Refresh settings to show connected state
+      loadPoolStatus(); // Load pool status after OAuth success
     } else if (oauthResult === "denied") {
       setOauthMessage({
         type: "error",
@@ -70,10 +86,73 @@ export default function AdminDashboard() {
 
       const data = await response.json();
       setSettings(data);
+
+      // Load pool status if OAuth is connected
+      if (data.oauthStatus === "connected") {
+        loadPoolStatus();
+      }
     } catch (err) {
       setError("Failed to load settings");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPoolStatus = async () => {
+    try {
+      const response = await fetch("/api/admin/stream-pool/status");
+
+      if (!response.ok) {
+        throw new Error("Failed to load pool status");
+      }
+
+      const data = await response.json();
+      setPoolStatus(data);
+    } catch (err) {
+      console.error("Pool status error:", err);
+    }
+  };
+
+  const handleInitializePool = async () => {
+    const count = prompt("How many streams to create? (1-20)", "10");
+    if (!count) return;
+
+    const countNum = parseInt(count);
+    if (isNaN(countNum) || countNum < 1 || countNum > 20) {
+      setPoolMessage({
+        type: "error",
+        text: "Invalid count. Enter 1-20."
+      });
+      return;
+    }
+
+    setPoolLoading(true);
+    setPoolMessage(null);
+
+    try {
+      const response = await fetch("/api/admin/stream-pool/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ count: countNum })
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to initialize pool");
+      }
+
+      const data = await response.json();
+      setPoolMessage({
+        type: "success",
+        text: `Created ${data.created} stream${data.created !== 1 ? "s" : ""}`
+      });
+      loadPoolStatus();
+    } catch (err) {
+      setPoolMessage({
+        type: "error",
+        text: "Failed to initialize pool"
+      });
+    } finally {
+      setPoolLoading(false);
     }
   };
 
@@ -321,34 +400,79 @@ export default function AdminDashboard() {
         {/* Stream Pool Status */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
           <h2 className="text-xl font-semibold">Stream Pool Status</h2>
-          <div className="mt-4 space-y-3">
-            <div className="grid grid-cols-4 gap-4 text-center">
-              <div className="rounded-lg border border-slate-800 p-4">
-                <div className="text-2xl font-bold text-green-400">0</div>
-                <div className="mt-1 text-sm text-slate-400">Available</div>
-              </div>
-              <div className="rounded-lg border border-slate-800 p-4">
-                <div className="text-2xl font-bold text-yellow-400">0</div>
-                <div className="mt-1 text-sm text-slate-400">Reserved</div>
-              </div>
-              <div className="rounded-lg border border-slate-800 p-4">
-                <div className="text-2xl font-bold text-blue-400">0</div>
-                <div className="mt-1 text-sm text-slate-400">In Use</div>
-              </div>
-              <div className="rounded-lg border border-slate-800 p-4">
-                <div className="text-2xl font-bold text-red-400">0</div>
-                <div className="mt-1 text-sm text-slate-400">Stuck</div>
+
+          {settings.oauthStatus !== "connected" && (
+            <div className="mt-4 rounded-lg border border-slate-800 p-4 text-sm text-slate-400">
+              Connect YouTube first to manage stream pool
+            </div>
+          )}
+
+          {settings.oauthStatus === "connected" && (
+            <div className="mt-4 space-y-4">
+              {poolMessage && (
+                <div
+                  className={`rounded-lg border p-3 text-sm ${
+                    poolMessage.type === "success"
+                      ? "border-green-900 bg-green-900/20 text-green-400"
+                      : "border-red-900 bg-red-900/20 text-red-400"
+                  }`}
+                >
+                  {poolMessage.text}
+                </div>
+              )}
+
+              {poolStatus && (
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+                  <div className="rounded-lg border border-slate-800 p-4 text-center">
+                    <div className="text-2xl font-bold text-green-400">
+                      {poolStatus.available}
+                    </div>
+                    <div className="mt-1 text-sm text-slate-400">Available</div>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 p-4 text-center">
+                    <div className="text-2xl font-bold text-yellow-400">
+                      {poolStatus.reserved}
+                    </div>
+                    <div className="mt-1 text-sm text-slate-400">Reserved</div>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 p-4 text-center">
+                    <div className="text-2xl font-bold text-blue-400">
+                      {poolStatus.in_use}
+                    </div>
+                    <div className="mt-1 text-sm text-slate-400">In Use</div>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 p-4 text-center">
+                    <div className="text-2xl font-bold text-red-400">
+                      {poolStatus.stuck}
+                    </div>
+                    <div className="mt-1 text-sm text-slate-400">Stuck</div>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 p-4 text-center">
+                    <div className="text-2xl font-bold text-slate-300">
+                      {poolStatus.total}
+                    </div>
+                    <div className="mt-1 text-sm text-slate-400">Total</div>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <button
+                  onClick={handleInitializePool}
+                  disabled={poolLoading}
+                  className="w-full rounded-lg border border-blue-700 bg-blue-900/20 px-4 py-2 text-sm font-medium text-blue-400 transition-colors hover:bg-blue-900/40 disabled:opacity-50"
+                >
+                  {poolLoading ? "Creating..." : "Initialize Stream Pool"}
+                </button>
+
+                {poolStatus && poolStatus.total > 0 && (
+                  <p className="mt-2 text-xs text-slate-400">
+                    Pool already has {poolStatus.total} stream{poolStatus.total !== 1 ? "s" : ""}. This will add more.
+                  </p>
+                )}
               </div>
             </div>
-            <div className="pt-2">
-              <button
-                disabled
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-500"
-              >
-                Initialize Stream Pool (Coming in PR #4)
-              </button>
-            </div>
-          </div>
+          )}
         </section>
 
         {/* Security Settings */}
