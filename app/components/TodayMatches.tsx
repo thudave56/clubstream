@@ -101,7 +101,7 @@ export default function TodayMatches() {
           <p className="mt-4 text-sm text-slate-400">Loading...</p>
         ) : filteredMatches.length === 0 ? (
           <p className="mt-4 text-sm text-slate-400">
-            No matches found for this filter.
+            No matches found for this filter. Try switching to All or Upcoming.
           </p>
         ) : (
           <div className="mt-4 space-y-3">

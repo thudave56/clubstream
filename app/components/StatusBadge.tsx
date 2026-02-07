@@ -5,7 +5,13 @@ interface StatusBadgeProps {
 }
 
 const statusLabels: Record<string, string> = {
-  draft: "scheduled"
+  draft: "Upcoming",
+  scheduled: "Scheduled",
+  ready: "Ready",
+  live: "Live",
+  ended: "Final",
+  canceled: "Canceled",
+  error: "Needs Attention"
 };
 
 const statusStyles: Record<string, string> = {
@@ -18,6 +24,14 @@ const statusStyles: Record<string, string> = {
   error: "bg-red-900/40 text-red-400"
 };
 
+function formatStatus(status: string) {
+  const label = statusLabels[status];
+  if (label) return label;
+  const cleaned = status.replace(/[_-]+/g, " ").trim();
+  if (!cleaned) return "Unknown";
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
 export function StatusBadge({ status }: StatusBadgeProps) {
   const className = statusStyles[status] || statusStyles.draft;
 
@@ -26,7 +40,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
       {status === "live" && (
         <span className="h-2 w-2 animate-pulse rounded-full bg-green-400" />
       )}
-      {statusLabels[status] || status}
+      {formatStatus(status)}
     </span>
   );
 }

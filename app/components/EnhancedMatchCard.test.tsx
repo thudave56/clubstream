@@ -64,15 +64,15 @@ describe('EnhancedMatchCard', () => {
     expect(tournamentBadge).not.toBeInTheDocument();
   });
 
-  it('shows "Start Streaming" button for pre-live matches', () => {
+  it('shows "Open Larix" button for pre-live matches', () => {
     const onEndMatch = vi.fn();
 
     renderWithContext(
       <EnhancedMatchCard match={{ ...mockMatch, status: 'draft' }} onEndMatch={onEndMatch} />
     );
 
-    expect(screen.getByText('Start Streaming')).toBeInTheDocument();
-    expect(screen.getByText('Start Streaming').closest('a')).toHaveAttribute(
+    expect(screen.getByText('Open Larix')).toBeInTheDocument();
+    expect(screen.getByText('Open Larix').closest('a')).toHaveAttribute(
       'href',
       '/m/match-123/stream'
     );
