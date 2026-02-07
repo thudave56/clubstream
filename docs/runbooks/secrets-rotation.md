@@ -7,6 +7,8 @@
 - GitHub environment secrets (`staging`, `production`)
 - Render service environment variables
 - External provider credentials (Google OAuth, Render API, Discord webhook)
+- Optional observability credentials (Sentry DSN/auth token)
+- Repository governance audit token (`GOVERNANCE_AUDIT_TOKEN`)
 
 ## Rotation Triggers
 - Scheduled rotation window.
@@ -28,9 +30,12 @@
 - `ENCRYPTION_KEY`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
+- `SENTRY_DSN`
+- `NEXT_PUBLIC_SENTRY_DSN`
 - `RENDER_API_KEY`
 - `RENDER_SERVICE_ID`
 - `DISCORD_WEBHOOK_URL`
+- `GOVERNANCE_AUDIT_TOKEN` (repository secret)
 
 ## Validation
 1. Run deployment workflow (`staging` then `production`).

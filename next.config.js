@@ -1,3 +1,5 @@
+const { withSentryConfig } = require("@sentry/nextjs");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -36,4 +38,10 @@ const nextConfig = {
   }
 };
 
-module.exports = nextConfig;
+module.exports = withSentryConfig(nextConfig, {
+  // Keep CI logs focused unless troubleshooting source-map upload.
+  silent: true,
+  treeshake: {
+    removeDebugLogging: true
+  }
+});

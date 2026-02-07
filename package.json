@@ -23,6 +23,7 @@
     "deploy:smoke": "node scripts/deploy/smoke-test.mjs",
     "deploy:verify-backup": "node scripts/deploy/verify-backup-checkpoint.mjs",
     "deploy:notify": "node scripts/deploy/notify-discord.mjs",
+    "deploy:verify-governance": "node scripts/deploy/verify-governance.mjs",
     "deploy:record-rehearsal": "node scripts/deploy/write-rehearsal-evidence.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -34,6 +35,7 @@
     "db:seed": "ts-node -P tsconfig.seed.json src/db/seed.ts"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.38.0",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.36.0",
     "googleapis": "^139.0.0",

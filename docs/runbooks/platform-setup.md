@@ -18,6 +18,8 @@
    - `DATABASE_URL`
    - `APP_BASE_URL`
    - `ENCRYPTION_KEY`
+   - `SENTRY_DSN` (optional but recommended)
+   - `SENTRY_TRACES_SAMPLE_RATE` (optional, default `0`)
    - `GOOGLE_CLIENT_ID`
    - `GOOGLE_CLIENT_SECRET`
    - `NODE_ENV=production`
@@ -27,6 +29,8 @@
    - `DATABASE_URL`
    - `APP_BASE_URL`
    - `ENCRYPTION_KEY`
+   - `SENTRY_DSN`
+   - `NEXT_PUBLIC_SENTRY_DSN`
    - `GOOGLE_CLIENT_ID`
    - `GOOGLE_CLIENT_SECRET`
    - `RENDER_API_KEY`
@@ -41,6 +45,8 @@
    - `DATABASE_URL`
    - `APP_BASE_URL`
    - `ENCRYPTION_KEY`
+   - `SENTRY_DSN` (optional but recommended)
+   - `SENTRY_TRACES_SAMPLE_RATE` (optional, default `0`)
    - `GOOGLE_CLIENT_ID`
    - `GOOGLE_CLIENT_SECRET`
    - `NODE_ENV=production`
@@ -50,6 +56,8 @@
    - `DATABASE_URL`
    - `APP_BASE_URL`
    - `ENCRYPTION_KEY`
+   - `SENTRY_DSN`
+   - `NEXT_PUBLIC_SENTRY_DSN`
    - `GOOGLE_CLIENT_ID`
    - `GOOGLE_CLIENT_SECRET`
    - `RENDER_API_KEY`
@@ -67,6 +75,8 @@
    - `regression`
    - `release-gate`
 3. Restrict direct pushes to `main`.
+4. Add repository secret `GOVERNANCE_AUDIT_TOKEN` (PAT with repo admin read/write scope) for scheduled governance checks.
+5. Run `Governance Check` workflow at least once and verify success.
 
 ## Validation
 1. Trigger a staging deployment path by merging to `main`.

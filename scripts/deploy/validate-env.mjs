@@ -16,6 +16,12 @@ if (process.env.RUN_DISCORD_NOTIFY === "true" && !process.env.DISCORD_WEBHOOK_UR
   errors.push("RUN_DISCORD_NOTIFY is true but DISCORD_WEBHOOK_URL is missing");
 }
 
+if (process.env.SENTRY_DSN && !process.env.NEXT_PUBLIC_SENTRY_DSN) {
+  console.warn(
+    "[deploy:validate-env] SENTRY_DSN is set but NEXT_PUBLIC_SENTRY_DSN is missing; client-side Sentry will be disabled."
+  );
+}
+
 if (errors.length > 0) {
   for (const err of errors) {
     console.error(`[deploy:validate-env] ${err}`);
