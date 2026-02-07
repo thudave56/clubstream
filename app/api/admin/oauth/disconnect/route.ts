@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { adminSettings, auditLog } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { decryptToken } from "@/lib/crypto";
-import { getGoogleOAuthConfig } from "@/lib/google-oauth-config";
+import { getGoogleOAuthConfigOptional } from "@/lib/google-oauth-config";
 
 export const dynamic = "force-dynamic";
 
@@ -34,14 +34,19 @@ export async function POST() {
 
     // Revoke token with Google if it exists
     if (refreshToken) {
-      const { clientId, clientSecret } = getGoogleOAuthConfig();
-      const oauth2Client = new google.auth.OAuth2(
-        clientId,
-        clientSecret
-      );
+      const cfg = getGoogleOAuthConfigOptional();
+      const oauth2Client = cfg
+        ? new google.auth.OAuth2(cfg.clientId, cfg.clientSecret)
+        : null;
 
       try {
-        await oauth2Client.revokeToken(decryptToken(refreshToken));
+        if (oauth2Client) {
+          await oauth2Client.revokeToken(decryptToken(refreshToken));
+        } else {
+          console.warn(
+            "[oauth] Skipping token revocation: GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET not set"
+          );
+        }
       } catch (error) {
         console.error("Token revocation failed:", error);
         // Continue anyway to clear local data
