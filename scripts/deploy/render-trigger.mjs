@@ -15,8 +15,8 @@ async function requestJson(url, options = {}) {
     try {
       json = JSON.parse(text);
     } catch (error) {
-      // For successful responses with non-JSON body (e.g., deploy hooks), allow empty object
-      // For failures, include raw text in error message below
+      // JSON parsing failed - continue with empty object
+      // Error handling below will include raw text if request failed
     }
   }
   
