@@ -34,8 +34,8 @@ async function checkEndpoint(path) {
     } catch {
       throw new Error("Health endpoint did not return valid JSON.");
     }
-    if (payload && typeof payload === "object" && "ok" in payload && payload.ok !== true) {
-      throw new Error("Health endpoint returned ok=false.");
+    if (!payload || typeof payload !== "object" || payload.ok !== true) {
+      throw new Error("Health endpoint did not return ok=true.");
     }
   }
 

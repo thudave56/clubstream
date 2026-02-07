@@ -13,7 +13,7 @@ import {
 import { z } from "zod";
 
 import { db } from "@/db";
-import { matches, adminSettings, scores, teams } from "@/db/schema";
+import { matches, adminSettings, scores, teams, tournaments } from "@/db/schema";
 import {
   createMatch,
   createMatchSchema,
@@ -58,6 +58,7 @@ export async function GET(request: Request) {
         opponentName: matches.opponentName,
         tournamentId: matches.tournamentId,
         tournamentName: matches.tournamentName,
+        tournamentDisplayName: tournaments.name,
         scheduledStart: matches.scheduledStart,
         courtLabel: matches.courtLabel,
         status: matches.status,
@@ -76,7 +77,8 @@ export async function GET(request: Request) {
         teamDisplayName: teams.displayName
       })
       .from(matches)
-      .innerJoin(teams, eq(matches.teamId, teams.id));
+      .innerJoin(teams, eq(matches.teamId, teams.id))
+      .leftJoin(tournaments, eq(matches.tournamentId, tournaments.id));
 
     const filteredMatchQuery = whereClause
       ? matchQuery.where(whereClause)
@@ -131,8 +133,9 @@ export async function GET(request: Request) {
     );
 
     // Merge matches with scores
-    return matchRows.map(match => ({
+    return matchRows.map(({ tournamentDisplayName, ...match }) => ({
       ...match,
+      tournamentName: tournamentDisplayName || match.tournamentName,
       ...(scoresMap.get(match.id) || {})
     }));
   };
