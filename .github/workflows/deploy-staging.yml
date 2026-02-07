@@ -1,0 +1,26 @@
+name: Deploy Staging
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: deploy-staging-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: staging
+      git_ref: ${{ github.event.workflow_run.head_sha }}
+      app_base_url: ${{ vars.STAGING_APP_BASE_URL }}
+      migration_command: npm run db:migrate:staging
+      run_discord_notify: true
+    secrets: inherit

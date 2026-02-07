@@ -1,6 +1,19 @@
-CREATE TYPE "public"."match_status" AS ENUM('draft', 'scheduled', 'ready', 'live', 'ended', 'canceled', 'error');--> statement-breakpoint
-CREATE TYPE "public"."oauth_status" AS ENUM('disconnected', 'connecting', 'connected', 'error');--> statement-breakpoint
-CREATE TYPE "public"."stream_status" AS ENUM('available', 'reserved', 'in_use', 'stuck', 'disabled');--> statement-breakpoint
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";--> statement-breakpoint
+DO $$ BEGIN
+ IF to_regtype('public.match_status') IS NULL THEN
+  CREATE TYPE "public"."match_status" AS ENUM('draft', 'scheduled', 'ready', 'live', 'ended', 'canceled', 'error');
+ END IF;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+ IF to_regtype('public.oauth_status') IS NULL THEN
+  CREATE TYPE "public"."oauth_status" AS ENUM('disconnected', 'connecting', 'connected', 'error');
+ END IF;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+ IF to_regtype('public.stream_status') IS NULL THEN
+  CREATE TYPE "public"."stream_status" AS ENUM('available', 'reserved', 'in_use', 'stuck', 'disabled');
+ END IF;
+END $$;--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "admin_settings" (
 	"id" integer PRIMARY KEY DEFAULT 1 NOT NULL,
 	"require_create_pin" boolean DEFAULT false NOT NULL,
