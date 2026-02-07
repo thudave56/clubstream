@@ -10,7 +10,17 @@ for (const key of REQUIRED) {
 }
 
 if (!hasApi) {
-  errors.push("Missing Render API credentials: RENDER_API_KEY and RENDER_SERVICE_ID are required for deploy polling.");
+  if (hasHook) {
+    // We currently rely on the Render API (not just a deploy hook) to reliably poll deploy status
+    // and to fall back to fetching the latest deploy ID when the hook response doesn't include one.
+    errors.push(
+      "RENDER_DEPLOY_HOOK_URL is set, but Render API credentials are still required for deploy polling: set RENDER_API_KEY and RENDER_SERVICE_ID."
+    );
+  } else {
+    errors.push(
+      "Missing Render deploy configuration: set RENDER_API_KEY and RENDER_SERVICE_ID (required for deploy polling)."
+    );
+  }
 }
 
 if (process.env.RUN_DISCORD_NOTIFY === "true" && !process.env.DISCORD_WEBHOOK_URL) {

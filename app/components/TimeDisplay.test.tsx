@@ -73,7 +73,10 @@ describe('TimeDisplay', () => {
     );
 
     // Should show month and day
-    expect(screen.getByText(/\w+ \d+/)).toBeInTheDocument();
+    // Locale can render this as word-based (e.g. "Feb 9") or numeric (e.g. "2/9/2026")
+    expect(
+      screen.getByText(/(\w+ \d+|\d{1,2}[\/\-.]\d{1,2}([\/\-.]\d{2,4})?)/)
+    ).toBeInTheDocument();
   });
 
   it('shows "Started" for past scheduled times', () => {

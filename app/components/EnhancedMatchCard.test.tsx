@@ -167,11 +167,6 @@ describe('EnhancedMatchCard', () => {
 
   it('copies match link to clipboard when Copy Link is clicked', async () => {
     const onEndMatch = vi.fn();
-    // Mock window.location.origin
-    Object.defineProperty(window, 'location', {
-      value: { origin: 'http://localhost:3000' },
-      writable: true
-    });
 
     renderWithContext(
       <EnhancedMatchCard match={mockMatch} onEndMatch={onEndMatch} />
@@ -182,7 +177,7 @@ describe('EnhancedMatchCard', () => {
 
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-        'http://localhost:3000/m/match-123'
+        `${window.location.origin}/m/match-123`
       );
     });
 

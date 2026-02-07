@@ -52,7 +52,7 @@ export default function TimeDisplay({ scheduledStart, status }: TimeDisplayProps
     }
 
     // More than 24 hours - show full date/time
-    return start.toLocaleDateString([], {
+    return start.toLocaleString([], {
       month: 'short',
       day: 'numeric',
       hour: 'numeric',
