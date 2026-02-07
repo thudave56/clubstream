@@ -185,6 +185,17 @@ describe('EnhancedMatchCard', () => {
     expect(screen.getByText('Copied!')).toBeInTheDocument();
   });
 
+  it('links to scoring page', () => {
+    const onEndMatch = vi.fn();
+
+    renderWithContext(
+      <EnhancedMatchCard match={mockMatch} onEndMatch={onEndMatch} />
+    );
+
+    const scoreLink = screen.getByText('Open Scoring').closest('a');
+    expect(scoreLink).toHaveAttribute('href', '/m/match-123/score');
+  });
+
   it('shows End Match button for live matches', () => {
     const onEndMatch = vi.fn();
 

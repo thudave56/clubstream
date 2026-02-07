@@ -140,7 +140,7 @@ export default function EnhancedMatchCard({ match, onEndMatch }: EnhancedMatchCa
       )}
 
       {/* Action Buttons Row */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {/* Primary action button (context-aware) */}
         {isPreLive && (
           <a
@@ -199,6 +199,17 @@ export default function EnhancedMatchCard({ match, onEndMatch }: EnhancedMatchCa
           </svg>
           {copiedLink ? 'Copied!' : 'Copy Link'}
         </button>
+
+        <a
+          href={`/m/${match.id}/score`}
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
+            <path d="M3 3H17V5H3V3ZM3 8H11V10H3V8ZM3 13H17V15H3V13Z" />
+          </svg>
+          Open Scoring
+        </a>
 
         {/* End match button (live only) */}
         {isLive && (

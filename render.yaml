@@ -69,6 +69,9 @@ projects:
               # Optional. If unset, the app will use RENDER_EXTERNAL_URL.
               - key: APP_BASE_URL
                 sync: false
+              # Required for one-time production bootstrap (seed). Set a secure value.
+              - key: DEFAULT_ADMIN_PIN
+                sync: false
         databases:
           - name: clubstream-production-db
             plan: basic-1gb

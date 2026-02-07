@@ -1,12 +1,5 @@
 import { test, expect } from "@playwright/test";
-
-// Helper function to log in as admin
-async function loginAsAdmin(page) {
-  await page.goto("/admin");
-  await page.getByLabel("Admin PIN").fill("1234");
-  await page.getByRole("button", { name: "Sign In" }).click();
-  await expect(page).toHaveURL("/admin/dashboard");
-}
+import { loginAsAdmin } from "./helpers/admin";
 
 // Helper function to simulate OAuth connection using test endpoint
 async function simulateOAuthConnect(page) {

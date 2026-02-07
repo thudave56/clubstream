@@ -21,7 +21,7 @@
 ## Staging Setup
 1. Create Render Web Service for staging from repository.
    - Runtime: `Node`
-   - Build command: `npm ci && npm run build`
+   - Build command: `npm ci --include=dev && npm run build`
    - Start command: `npm run start`
    - Health check path: `/api/health`
    - Auto-deploy: Disabled (if using GitHub Actions to trigger deploys)
@@ -54,7 +54,7 @@
 ## Production Setup
 1. Create Render Web Service for production.
    - Runtime: `Node`
-   - Build command: `npm ci && npm run build`
+   - Build command: `npm ci --include=dev && npm run build`
    - Start command: `npm run start`
    - Health check path: `/api/health`
    - Auto-deploy: Disabled (if using GitHub Actions to trigger deploys)
@@ -68,10 +68,12 @@
    - `SENTRY_TRACES_SAMPLE_RATE` (optional, default `0`)
    - `GOOGLE_CLIENT_ID`
    - `GOOGLE_CLIENT_SECRET`
+   - `DEFAULT_ADMIN_PIN` (set a secure value before the one-time seed)
    - `NODE_ENV=production`
-4. Capture production service ID for CI (`RENDER_SERVICE_ID`).
-5. In GitHub, create `production` environment.
-6. Add `production` environment secrets:
+4. Run `npm run db:seed` as a Render one-off job (one time, after setting `DEFAULT_ADMIN_PIN`).
+5. Capture production service ID for CI (`RENDER_SERVICE_ID`).
+6. In GitHub, create `production` environment.
+7. Add `production` environment secrets:
    - `DATABASE_URL`
    - `APP_BASE_URL`
    - `ENCRYPTION_KEY`
@@ -82,8 +84,8 @@
    - `RENDER_API_KEY`
    - `RENDER_SERVICE_ID`
    - `DISCORD_WEBHOOK_URL`
-7. Add `PRODUCTION_APP_BASE_URL` environment variable in GitHub Environment variables.
-8. Enable required reviewers on `production` environment.
+8. Add `PRODUCTION_APP_BASE_URL` environment variable in GitHub Environment variables.
+9. Enable required reviewers on `production` environment.
 
 ## Branch Protection Baseline
 1. Protect `main` branch.

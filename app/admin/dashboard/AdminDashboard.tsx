@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import MatchManagement from "./MatchManagement";
+import TeamManagement from "./TeamManagement";
 
 interface Settings {
   requireCreatePin: boolean;
@@ -19,6 +20,13 @@ interface PoolStatus {
   stuck: number;
   disabled: number;
   total: number;
+}
+
+interface AuditEntry {
+  id: string;
+  action: string;
+  detail: unknown;
+  createdAt: string;
 }
 
 export default function AdminDashboard() {
@@ -38,9 +46,13 @@ export default function AdminDashboard() {
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState("");
 
   useEffect(() => {
     loadSettings();
+    loadAuditLog();
 
     // Check for OAuth result in URL
     const params = new URLSearchParams(window.location.search);
@@ -96,6 +108,31 @@ export default function AdminDashboard() {
       setError("Failed to load settings");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAuditLog = async () => {
+    setAuditLoading(true);
+    setAuditError("");
+
+    try {
+      const response = await fetch("/api/admin/audit");
+
+      if (response.status === 401) {
+        router.push("/admin");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("Failed to load audit log");
+      }
+
+      const data = await response.json();
+      setAuditEntries(data.entries || []);
+    } catch {
+      setAuditError("Failed to load audit log");
+    } finally {
+      setAuditLoading(false);
     }
   };
 
@@ -529,6 +566,8 @@ export default function AdminDashboard() {
           </div>
         </section>
 
+        <TeamManagement onChanged={loadAuditLog} />
+
         {/* Match Management */}
         {settings?.oauthStatus === "connected" && (
           <MatchManagement onPoolStatusChange={loadPoolStatus} />
@@ -538,9 +577,52 @@ export default function AdminDashboard() {
         <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
           <h2 className="text-xl font-semibold">Recent Activity</h2>
           <div className="mt-4">
-            <div className="rounded-lg border border-dashed border-slate-700 p-8 text-center text-slate-400">
-              Audit log viewer coming soon
-            </div>
+            {auditLoading && (
+              <div className="rounded-lg border border-slate-800 p-4 text-sm text-slate-400">
+                Loading recent activity...
+              </div>
+            )}
+            {!auditLoading && auditError && (
+              <div className="rounded-lg border border-red-900 bg-red-900/20 p-4 text-sm text-red-400">
+                {auditError}
+              </div>
+            )}
+            {!auditLoading && !auditError && auditEntries.length === 0 && (
+              <div className="rounded-lg border border-slate-800 p-4 text-sm text-slate-400">
+                No recent activity yet.
+              </div>
+            )}
+            {!auditLoading && !auditError && auditEntries.length > 0 && (
+              <div className="divide-y divide-slate-800 rounded-lg border border-slate-800">
+                {auditEntries.map((entry) => {
+                  const label = entry.action
+                    .replace(/_/g, " ")
+                    .replace(/\b\w/g, (m) => m.toUpperCase());
+                  const detail =
+                    entry.detail && typeof entry.detail === "object"
+                      ? JSON.stringify(entry.detail)
+                      : entry.detail ? String(entry.detail) : "";
+
+                  return (
+                    <div key={entry.id} className="flex flex-col gap-2 p-4 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <div className="text-sm font-medium text-slate-200">
+                          {label}
+                        </div>
+                        {detail && (
+                          <div className="mt-1 text-xs text-slate-400">
+                            {detail}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {new Date(entry.createdAt).toLocaleString()}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </section>
       </div>
