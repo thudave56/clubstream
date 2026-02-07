@@ -10,7 +10,7 @@ projects:
             region: oregon
             branch: main
             buildCommand: npm ci && npm run build
-            preDeployCommand: npm run db:migrate:staging && npm run db:seed
+            preDeployCommand: npm run db:wait && npm run db:migrate:staging && npm run db:seed
             startCommand: npm run start
             healthCheckPath: /api/health
             autoDeployTrigger: checksPass
@@ -40,7 +40,7 @@ projects:
             region: oregon
             branch: main
             buildCommand: npm ci && npm run build
-            preDeployCommand: npm run db:migrate:prod
+            preDeployCommand: npm run db:wait && npm run db:migrate:prod
             startCommand: npm run start
             healthCheckPath: /api/health
             autoDeployTrigger: off
@@ -57,4 +57,3 @@ projects:
         databases:
           - name: clubstream-production-db
             plan: basic-1gb
-

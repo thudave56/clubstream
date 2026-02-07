@@ -26,6 +26,7 @@
     "deploy:verify-governance": "node scripts/deploy/verify-governance.mjs",
     "deploy:record-rehearsal": "node scripts/deploy/write-rehearsal-evidence.mjs",
     "render:validate-blueprint": "node scripts/render/validate-blueprint.mjs",
+    "db:wait": "node scripts/deploy/wait-for-db.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:ci": "npm run db:migrate",
