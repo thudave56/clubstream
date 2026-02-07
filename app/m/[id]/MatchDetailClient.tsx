@@ -164,9 +164,13 @@ export default function MatchDetailClient({
 
   return (
     <div className="space-y-8">
-      {/* Stream status polling for pre-live matches */}
-      {isPreLive && currentStatus !== "ended" && (
-        <MatchStreamStatus matchId={matchId} onLive={() => setCurrentStatus("live")} />
+      {/* Stream status polling — active during pre-live and live phases */}
+      {currentStatus !== "ended" && currentStatus !== "canceled" && (
+        <MatchStreamStatus
+          matchId={matchId}
+          onLive={() => setCurrentStatus("live")}
+          onEnded={() => setCurrentStatus("ended")}
+        />
       )}
 
       {/* End match button for live matches */}

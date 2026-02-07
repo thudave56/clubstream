@@ -48,12 +48,32 @@ export async function POST(
 
     const match = matchRecords[0];
 
-    // Already live or ended - nothing to do
-    if (match.status === "live") {
-      return NextResponse.json({ status: "already_live" });
-    }
+    // Match ended or canceled — stop polling
     if (["ended", "canceled"].includes(match.status)) {
       return NextResponse.json({ status: match.status });
+    }
+
+    // Already live — return current stream health so callers can monitor
+    if (match.status === "live") {
+      if (match.streamPoolId) {
+        const liveStreamRecords = await db
+          .select()
+          .from(streamPool)
+          .where(eq(streamPool.id, match.streamPoolId))
+          .limit(1);
+
+        if (liveStreamRecords.length > 0) {
+          const ytHealth = await getYouTubeStreamStatus(
+            liveStreamRecords[0].youtubeStreamId
+          );
+          return NextResponse.json({
+            status: "already_live",
+            streamStatus: ytHealth.status,
+            healthStatus: ytHealth.healthStatus
+          });
+        }
+      }
+      return NextResponse.json({ status: "already_live" });
     }
 
     // Need broadcast and stream to check
