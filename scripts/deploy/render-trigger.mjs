@@ -6,13 +6,35 @@ const serviceId = process.env.RENDER_SERVICE_ID;
 const hookUrl = process.env.RENDER_DEPLOY_HOOK_URL;
 const sha = process.env.DEPLOY_SHA;
 
-async function requestJson(url, options = {}) {
+async function requestJson(url, options = {}, isHookEndpoint = false) {
   const response = await fetch(url, options);
   const text = await response.text();
-  const json = text ? JSON.parse(text) : {};
-  if (!response.ok) {
-    throw new Error(`Request failed ${response.status}: ${JSON.stringify(json)}`);
+  
+  let json = {};
+  if (text) {
+    try {
+      json = JSON.parse(text);
+    } catch (parseError) {
+      // Handle failed requests first
+      if (!response.ok) {
+        throw new Error(`Request failed ${response.status}: ${text}`);
+      }
+      // For successful responses, only allow non-JSON for hook endpoints
+      if (!isHookEndpoint) {
+        // API responses should always be JSON
+        const preview = text.length > 100 ? text.slice(0, 100) + '...' : text;
+        throw new Error(`Unexpected non-JSON response from ${url}: ${preview}`);
+      }
+      // Hook endpoints may return empty/non-JSON on success - allow it
+    }
   }
+  
+  if (!response.ok) {
+    // Include parsed JSON if available, otherwise raw text
+    const errorDetail = Object.keys(json).length > 0 ? JSON.stringify(json) : text || 'No response body';
+    throw new Error(`Request failed ${response.status}: ${errorDetail}`);
+  }
+  
   return json;
 }
 
@@ -51,7 +73,7 @@ async function triggerViaHook() {
     return "";
   }
 
-  const result = await requestJson(hookUrl, { method: "POST" });
+  const result = await requestJson(hookUrl, { method: "POST" }, true);
   return result?.id ?? result?.deploy?.id ?? result?.deployId ?? "";
 }
 

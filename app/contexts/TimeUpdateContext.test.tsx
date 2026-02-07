@@ -8,6 +8,7 @@ describe('TimeUpdateContext', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 

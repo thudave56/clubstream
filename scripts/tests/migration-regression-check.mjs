@@ -23,11 +23,11 @@ const REQUIRED_MATCH_STATUSES = [
 ];
 
 function fail(message, details) {
-  console.error(`Migration regression check failed: ${message}`);
+  const error = new Error(`Migration regression check failed: ${message}`);
   if (details) {
-    console.error(details);
+    error.details = details;
   }
-  process.exit(1);
+  throw error;
 }
 
 async function main() {
@@ -119,4 +119,10 @@ async function main() {
   }
 }
 
-main();
+main().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  if (error && typeof error === "object" && "details" in error && error.details) {
+    console.error(error.details);
+  }
+  process.exit(1);
+});
