@@ -15,17 +15,17 @@ async function requestJson(url, options = {}) {
     try {
       json = JSON.parse(text);
     } catch (error) {
-      // If parsing fails, include raw text in error for debugging
-      if (!response.ok) {
-        throw new Error(`Request failed ${response.status}: ${text}`);
-      }
-      // For successful responses with non-JSON body (e.g., deploy hooks), return empty object
+      // For successful responses with non-JSON body (e.g., deploy hooks), allow empty object
+      // For failures, include raw text in error message below
     }
   }
   
   if (!response.ok) {
-    throw new Error(`Request failed ${response.status}: ${JSON.stringify(json)}`);
+    // Include parsed JSON if available, otherwise raw text
+    const errorDetail = Object.keys(json).length > 0 ? JSON.stringify(json) : text || 'No response body';
+    throw new Error(`Request failed ${response.status}: ${errorDetail}`);
   }
+  
   return json;
 }
 
