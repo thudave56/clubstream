@@ -48,8 +48,8 @@ async function main() {
     });
 
     console.log("Initialized admin settings");
-    console.log(`⚠️  Default admin PIN: ${DEFAULT_ADMIN_PIN}`);
-    console.log("⚠️  IMPORTANT: Change this PIN in production!");
+    console.log(`[seed] Default admin PIN: ${DEFAULT_ADMIN_PIN}`);
+    console.log("[seed] IMPORTANT: Change this PIN in production!");
   } else {
     console.log("Admin settings already initialized");
   }

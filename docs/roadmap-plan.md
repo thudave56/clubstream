@@ -41,6 +41,8 @@
 - FR-007: Scoring and overlay must update within 1-2 seconds under normal conditions.
 - FR-008: Scoring and overlay must gracefully fall back to polling if realtime channel fails.
 - FR-009: CI must gate releases on unit, E2E, and regression suites.
+- FR-010: Admin must be able to add, rename, enable, and disable teams (controls the match creation team dropdown).
+- FR-011: Match creation team dropdown must show enabled teams only, ordered by display name, reflecting updates immediately after admin changes.
 
 ### 4.2 Non-functional requirements
 - NFR-001: Performance: realtime updates within 1-2 seconds on stable network.
@@ -51,7 +53,35 @@
 
 ## 5. Technical specifications
 
-### 5.1 Realtime architecture
+### 5.1 Team management
+- Data model
+  - Use the existing `teams` table (`id`, `slug`, `displayName`, `enabled`, `createdAt`).
+  - Do not hard delete teams. Matches reference `teams.id` with `onDelete: restrict`.
+  - Disabling a team removes it from the public `/api/teams` list (and thus the match creation dropdown).
+- Admin API surface (admin-auth required for all endpoints)
+  - `GET /api/admin/teams`
+    - Returns all teams (enabled and disabled) ordered by `displayName`.
+  - `POST /api/admin/teams`
+    - Creates a team.
+    - Input: `displayName` (required), `slug` (optional, otherwise derived).
+    - Validations: `displayName` non-empty; `slug` unique and URL-safe (lowercase, hyphenated).
+  - `PATCH /api/admin/teams/:id`
+    - Updates `displayName` and/or `enabled`.
+    - Validations: `displayName` non-empty; no duplicate slug.
+- Audit logging
+  - Create audit entries for team changes: `team_created`, `team_updated`, `team_disabled`, `team_enabled`.
+- Admin UI requirements
+  - Add an admin "Teams" management view.
+  - Supports: list, create, rename, disable/enable.
+  - Guidance: "Disabled teams will not appear in the match creation dropdown."
+- Client integration
+  - Public team list endpoint stays `GET /api/teams` (enabled teams only).
+  - Any UI that includes a "primary team" dropdown should refetch `/api/teams` after team changes (or provide a refresh control).
+- Testing
+  - Unit tests: route handler validation (create, rename, disable), ordering, and auth enforcement.
+  - E2E: create team -> appears in dropdown; rename team -> dropdown reflects; disable team -> removed from dropdown.
+
+### 5.2 Realtime architecture
 - Use Server-Sent Events for score updates.
 - Endpoint: `GET /api/matches/:id/score/stream`.
 - Event payload: JSON with `matchId`, `setNumber`, `homeScore`, `awayScore`, `updatedAt`.
@@ -60,28 +90,28 @@
   - On error, fall back to polling every 5 seconds.
   - Display a connection indicator (Connected, Reconnecting, Polling).
 
-### 5.2 Scoring and overlay clients
+### 5.3 Scoring and overlay clients
 - Scoring client should subscribe to SSE and update scoreboard state immediately.
 - Overlay client should subscribe to SSE and stop updates after match ends.
 - When match ends, clients should show a final state and stop requesting updates.
 
-### 5.3 Admin readiness checklist
+### 5.4 Admin readiness checklist
 - Section in admin dashboard that shows:
   - OAuth status (connected or not).
   - Stream pool counts (available, reserved, in use, stuck).
   - Match creation PIN status.
 - Each item should have a short action or link to resolve issues.
 
-### 5.4 Stream pool recovery
+### 5.5 Stream pool recovery
 - Add a tool to mark a stream as available or disabled.
 - Log the action in audit log with `stream_pool_recovered` or `stream_pool_disabled`.
 
-### 5.5 Audit log usability
+### 5.6 Audit log usability
 - Add filters by action type and a simple text filter on detail.
 - Show timestamps in local time with clear formatting.
 - Provide a copy-to-clipboard button for entry detail.
 
-### 5.6 Testing requirements
+### 5.7 Testing requirements
 - Unit tests:
   - SSE server handler emits correct payloads.
   - Client fallback logic toggles to polling on SSE failure.
@@ -93,7 +123,7 @@
   - Create match -> open Larix -> scoring update -> overlay reflects score.
   - OAuth denied path and recovery instructions are visible.
 
-### 5.7 Documentation requirements
+### 5.8 Documentation requirements
 - README updated to remove outdated "coming" items.
 - Parent quick-start guidance embedded in homepage or match creation success panel.
 - Admin setup instructions in `docs/runbooks/` for OAuth and stream pool initialization.
@@ -105,10 +135,21 @@ Deliverables:
 - Merge or rebase `main` into long-lived branches before further work.
 - Align README with current product state and remove outdated "coming" notes.
 - Confirm test suites and fix obvious flake causes.
+- Remove obvious text encoding issues in docs/log messages (keep repository text readable and ASCII-safe where possible).
 Acceptance criteria:
 - No branch regression when merged to main.
 - README reflects actual features.
 - CI passes without intermittent failures on main.
+
+### Phase 0.5: Team management (admin)
+Deliverables:
+- Admin teams management UI: add, rename, disable/enable.
+- Admin APIs for teams management and audit logging for changes.
+- Ensure team dropdowns only show enabled teams and reflect updates quickly.
+Acceptance criteria:
+- Admin can add a team and it appears in the match creation team dropdown.
+- Admin can rename a team and the new name appears everywhere teams are listed.
+- Admin can disable a team and it disappears from the match creation dropdown without breaking historical matches.
 
 ### Phase 1: Parent-facing UX improvements
 Deliverables:

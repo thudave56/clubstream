@@ -20,13 +20,13 @@ export function validateEnv(): void {
   }
 
   if (!process.env.APP_BASE_URL) {
-    warnings.push("APP_BASE_URL is not set — defaulting to localhost");
+    warnings.push("APP_BASE_URL is not set - defaulting to localhost");
   } else if (isProduction && process.env.APP_BASE_URL.includes("localhost")) {
     warnings.push("APP_BASE_URL contains 'localhost' in production");
   }
 
   if (isProduction && process.env.DEFAULT_ADMIN_PIN === "1234") {
-    warnings.push("DEFAULT_ADMIN_PIN is still '1234' in production — change it");
+    warnings.push("DEFAULT_ADMIN_PIN is still '1234' in production - change it");
   }
 
   for (const w of warnings) {
