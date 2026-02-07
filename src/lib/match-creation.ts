@@ -154,6 +154,33 @@ export async function getYouTubeStreamStatus(
 }
 
 /**
+ * Get the current lifecycle status of a YouTube broadcast
+ * @param broadcastId - YouTube broadcast ID
+ * @returns Broadcast lifecycle status (e.g. "ready", "testing", "live", "complete")
+ */
+export async function getBroadcastStatus(
+  broadcastId: string
+): Promise<string> {
+  try {
+    const youtube = await getYouTubeClient();
+    const response = await youtube.liveBroadcasts.list({
+      part: ["status"],
+      id: [broadcastId]
+    });
+
+    const broadcast = response.data.items?.[0];
+    if (!broadcast) {
+      return "not_found";
+    }
+
+    return broadcast.status?.lifeCycleStatus || "unknown";
+  } catch (error) {
+    console.error("Failed to check broadcast status:", error);
+    return "error";
+  }
+}
+
+/**
  * Transition a YouTube broadcast status
  * @param broadcastId - YouTube broadcast ID
  * @param status - Target status: "testing", "live", or "complete"

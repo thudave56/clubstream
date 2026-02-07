@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  getBroadcastStatus,
   getYouTubeStreamStatus,
   transitionBroadcast
 } from "@/lib/match-creation";
@@ -90,16 +91,37 @@ export async function POST(
       });
     }
 
-    // Stream is active - transition broadcast to live
+    // Stream is active - check broadcast status and transition to live
+    const broadcastStatus = await getBroadcastStatus(match.youtubeBroadcastId);
+
     try {
-      await transitionBroadcast(match.youtubeBroadcastId, "testing");
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      await transitionBroadcast(match.youtubeBroadcastId, "live");
+      if (broadcastStatus === "ready" || broadcastStatus === "created") {
+        await transitionBroadcast(match.youtubeBroadcastId, "testing");
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+
+      // Re-check in case testing transition just happened or was already done
+      const currentStatus = broadcastStatus === "ready" || broadcastStatus === "created"
+        ? "testing"
+        : broadcastStatus;
+
+      if (currentStatus === "testing" || currentStatus === "testStarting") {
+        await transitionBroadcast(match.youtubeBroadcastId, "live");
+      } else if (currentStatus === "live" || currentStatus === "liveStarting") {
+        // Already live — fall through to update DB
+      } else {
+        return NextResponse.json({
+          status: "waiting",
+          streamStatus: ytStatus.status,
+          broadcastStatus: currentStatus
+        });
+      }
     } catch (error) {
       console.error("Auto-live transition failed:", error);
       return NextResponse.json({
         status: "transition_failed",
-        streamStatus: ytStatus.status
+        streamStatus: ytStatus.status,
+        broadcastStatus
       });
     }
 
