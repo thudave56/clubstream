@@ -26,7 +26,8 @@ async function disconnectOAuth(page: Page) {
  */
 async function populateTestStreamPool(page: Page) {
   const response = await page.request.post(
-    "http://localhost:3000/api/admin/test-stream-pool"
+    "http://localhost:3000/api/admin/test-stream-pool-reset",
+    { data: { count: 5 } }
   );
   expect(response.ok()).toBeTruthy();
 }

@@ -7,7 +7,11 @@ test.describe("Regression: scoring + overlay realtime updates", () => {
       (await request.post("http://localhost:3000/api/admin/test-oauth-connect")).ok()
     ).toBeTruthy();
     await expect(
-      (await request.post("http://localhost:3000/api/admin/test-stream-pool")).ok()
+      (
+        await request.post("http://localhost:3000/api/admin/test-stream-pool-reset", {
+          data: { count: 5 }
+        })
+      ).ok()
     ).toBeTruthy();
 
     // Pick an enabled team.
@@ -60,4 +64,3 @@ test.describe("Regression: scoring + overlay realtime updates", () => {
     });
   });
 });
-

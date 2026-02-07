@@ -26,7 +26,8 @@ async function disconnectOAuth(page: Page) {
  */
 async function populateTestStreamPool(page: Page) {
   const response = await page.request.post(
-    "http://localhost:3000/api/admin/test-stream-pool"
+    "http://localhost:3000/api/admin/test-stream-pool-reset",
+    { data: { count: 5 } }
   );
   expect(response.ok()).toBeTruthy();
 }
@@ -94,7 +95,7 @@ test.describe("Match Creation", () => {
     await page.getByRole("button", { name: "Create Match" }).click();
 
     // Wait for success message (current UI copy).
-    await expect(page.getByText(/Match created!/)).toBeVisible({
+    await expect(page.getByText(/Match created!/).first()).toBeVisible({
       timeout: 10000
     });
 
@@ -155,7 +156,7 @@ test.describe("Match Management", () => {
       await cancelButton.click();
 
       // Wait for success message
-      await expect(page.getByText("Match canceled")).toBeVisible({
+      await expect(page.getByText("Match canceled").first()).toBeVisible({
         timeout: 5000
       });
     }
