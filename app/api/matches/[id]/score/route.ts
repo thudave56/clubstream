@@ -11,6 +11,7 @@ import {
   type SetScore
 } from "@/lib/scoring";
 import { scoringLimiter } from "@/lib/match-rate-limit";
+import { getClientIp } from "@/lib/request-ip";
 
 export const dynamic = "force-dynamic";
 
@@ -104,10 +105,7 @@ export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const ip =
-    request.headers.get("x-forwarded-for") ||
-    request.headers.get("x-real-ip") ||
-    "unknown";
+  const ip = getClientIp(request);
 
   if (scoringLimiter.isRateLimited(ip)) {
     return Response.json(

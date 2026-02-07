@@ -63,17 +63,15 @@ test.describe("Stream Pool Management", () => {
     ).not.toBeVisible();
   });
 
-  // TODO: Fix OAuth simulation timing in test environment
-  test.skip("should show stream pool controls when OAuth connected", async ({
+  test("should show stream pool controls when OAuth connected", async ({
     page
   }) => {
     await loginAsAdmin(page);
     await simulateOAuthConnect(page);
-    await page.reload();
-    await page.waitForLoadState("networkidle");
-
-    // Wait for settings and pool status to load
-    await page.waitForTimeout(1000);
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(
+      page.locator("span.rounded-full:has-text('connected')")
+    ).toBeVisible({ timeout: 10000 });
 
     // Check Stream Pool Status section
     await expect(
@@ -88,24 +86,17 @@ test.describe("Stream Pool Management", () => {
     await expect(initButton).toBeEnabled();
   });
 
-  // TODO: Fix OAuth simulation timing in test environment
-  test.skip("should display pool status counts correctly", async ({ page }) => {
+  test("should display pool status counts correctly", async ({ page }) => {
     await loginAsAdmin(page);
     await simulateOAuthConnect(page);
-
-    // Reload to see OAuth connection
-    await page.reload();
-    await page.waitForLoadState("networkidle");
 
     // Populate test stream pool
     await populateTestStreamPool(page);
 
-    // Reload again to see pool data
-    await page.reload();
-    await page.waitForLoadState("networkidle");
-
-    // Wait for pool status to load
-    await page.waitForTimeout(1500);
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(
+      page.locator("span.rounded-full:has-text('connected')")
+    ).toBeVisible({ timeout: 10000 });
 
     // Check that status counts are displayed
     // Note: Exact counts depend on test data - test-stream-pool creates 3 streams
@@ -163,11 +154,10 @@ test.describe("Stream Pool Management", () => {
     await simulateOAuthConnect(page);
     await populateTestStreamPool(page);
 
-    await page.reload();
-    await page.waitForLoadState("networkidle");
-
-    // Wait for pool status to load
-    await page.waitForTimeout(1000);
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(
+      page.locator("span.rounded-full:has-text('connected')")
+    ).toBeVisible({ timeout: 10000 });
 
     // Check for the warning message about existing streams
     await expect(

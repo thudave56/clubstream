@@ -6,6 +6,7 @@ import { adminSettings, auditLog } from "@/db/schema";
 import { verifyPin } from "@/lib/auth";
 import { createSession, setSessionCookie } from "@/lib/session";
 import { isRateLimited, recordAttempt, clearAttempts, getResetTime } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/request-ip";
 
 const loginSchema = z.object({
   pin: z.string().min(4, "PIN must be at least 4 characters")
@@ -14,7 +15,7 @@ const loginSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     // Get client IP for rate limiting
-    const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+    const ip = getClientIp(request);
 
     // Check rate limit
     if (isRateLimited(ip)) {

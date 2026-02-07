@@ -4,6 +4,53 @@ import { adminSettings } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { encryptToken, decryptToken } from "./crypto";
 import { getGoogleOAuthConfig } from "./google-oauth-config";
+import { getGoogleOAuthConfigOptional } from "./google-oauth-config";
+
+function isYouTubeMockEnabled(): boolean {
+  if (process.env.NODE_ENV === "production") return false;
+  if (process.env.MOCK_YOUTUBE === "1" || process.env.YOUTUBE_MOCK === "1") {
+    return true;
+  }
+  // In CI we intentionally do not provide Google credentials; allow the app to run
+  // against a local DB without talking to external APIs.
+  return getGoogleOAuthConfigOptional() === null;
+}
+
+function createMockYouTubeClient(): youtube_v3.Youtube {
+  let broadcastCounter = 0;
+  let streamCounter = 0;
+
+  const liveBroadcasts = {
+    insert: async () => ({
+      data: { id: `mock-broadcast-${Date.now()}-${++broadcastCounter}` }
+    }),
+    bind: async () => ({ data: {} }),
+    list: async () => ({
+      data: { items: [{ status: { lifeCycleStatus: "ready" } }] }
+    }),
+    transition: async () => ({ data: {} }),
+    delete: async () => ({ data: {} })
+  } as any;
+
+  const liveStreams = {
+    insert: async () => ({
+      data: {
+        id: `mock-stream-${Date.now()}-${++streamCounter}`,
+        cdn: {
+          ingestionInfo: {
+            ingestionAddress: "rtmp://test.youtube.com/ingress",
+            streamName: `mock-key-${streamCounter}`
+          }
+        }
+      }
+    }),
+    list: async () => ({
+      data: { items: [{ status: { streamStatus: "ready", healthStatus: { status: "good" } } }] }
+    })
+  } as any;
+
+  return { liveBroadcasts, liveStreams } as any;
+}
 
 /**
  * Get a valid YouTube API access token, refreshing if necessary
@@ -104,6 +151,10 @@ async function refreshAccessToken(refreshToken: string): Promise<string> {
  * @throws Error if OAuth not connected or token refresh fails
  */
 export async function getYouTubeClient(): Promise<youtube_v3.Youtube> {
+  if (isYouTubeMockEnabled()) {
+    return createMockYouTubeClient();
+  }
+
   const accessToken = await getValidAccessToken();
 
   const { clientId, clientSecret } = getGoogleOAuthConfig();
