@@ -55,6 +55,13 @@ export default function OverlayClient({
   const [data, setData] = useState<ScoreResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const autoLiveTriggered = useRef(false);
+  const [realtimeMode, setRealtimeMode] = useState<"sse" | "polling">("sse");
+  const [sseStatus, setSseStatus] = useState<
+    "connecting" | "connected" | "reconnecting"
+  >("connecting");
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const connectNowRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const original = document.body.style.backgroundColor;
@@ -88,9 +95,95 @@ export default function OverlayClient({
   // the overlay continues fetching indefinitely after the match ends.
   useEffect(() => {
     fetchScore();
-    const interval = setInterval(fetchScore, 2000);
-    return () => clearInterval(interval);
   }, [fetchScore]);
+
+  const realtimeEnabled = !(data?.state?.matchComplete);
+
+  useEffect(() => {
+    if (!realtimeEnabled) {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      if (reconnectTimerRef.current) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      connectNowRef.current = null;
+      return;
+    }
+
+    let stopped = false;
+
+    const cleanup = () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      if (reconnectTimerRef.current) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+    };
+
+    const connect = () => {
+      if (stopped) return;
+      cleanup();
+
+      const es = new EventSource(`/api/matches/${matchId}/score/stream`);
+      eventSourceRef.current = es;
+
+      setSseStatus((prev) =>
+        prev === "connected" ? "reconnecting" : "connecting"
+      );
+
+      es.onopen = () => {
+        if (stopped) return;
+        setSseStatus("connected");
+        setRealtimeMode("sse");
+      };
+
+      es.onmessage = () => {
+        fetchScore();
+      };
+
+      es.onerror = () => {
+        if (stopped) return;
+        try {
+          es.close();
+        } catch {
+          // ignore
+        }
+        eventSourceRef.current = null;
+
+        setSseStatus("reconnecting");
+        setRealtimeMode("polling");
+
+        reconnectTimerRef.current = window.setTimeout(() => {
+          if (stopped) return;
+          connect();
+        }, 10000);
+      };
+    };
+
+    connectNowRef.current = connect;
+    connect();
+
+    return () => {
+      stopped = true;
+      cleanup();
+      connectNowRef.current = null;
+    };
+  }, [fetchScore, matchId, realtimeEnabled]);
+
+  useEffect(() => {
+    if (!realtimeEnabled) return;
+    if (realtimeMode !== "polling") return;
+
+    fetchScore();
+    const interval = window.setInterval(fetchScore, 5000);
+    return () => window.clearInterval(interval);
+  }, [fetchScore, realtimeEnabled, realtimeMode]);
 
   // When running inside Larix (autoLive=true), poll the auto-live endpoint
   // to transition the broadcast to live once YouTube detects the RTMP stream.
@@ -102,7 +195,7 @@ export default function OverlayClient({
     const matchStatus = data?.match?.status;
     if (!matchStatus) return;
 
-    // Already live or finished — nothing to do
+    // Already live or finished - nothing to do
     if (!PRE_LIVE_STATUSES.includes(matchStatus)) {
       autoLiveTriggered.current = true;
       return;
@@ -165,8 +258,19 @@ export default function OverlayClient({
       >
         <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.3em] text-slate-200">
           <span>{match.tournamentName || "Clubstream"}</span>
-          <span>
-            Set {state.currentSetNumber} / {rules.bestOf}
+          <span className="flex items-center gap-2">
+            <span>
+              Set {state.currentSetNumber} / {rules.bestOf}
+            </span>
+            <span className="rounded-full border border-white/10 bg-black/30 px-2 py-0.5 text-[9px] tracking-[0.2em] text-slate-200">
+              {realtimeEnabled
+                ? realtimeMode === "polling"
+                  ? "POLL"
+                  : sseStatus === "connected"
+                  ? "LIVE"
+                  : "RETRY"
+                : "DONE"}
+            </span>
           </span>
         </div>
 
@@ -183,7 +287,7 @@ export default function OverlayClient({
 
         <div className="mt-3 flex items-center justify-between text-xs text-slate-300">
           <span>
-            First to {set?.targetPoints} • Win by {rules.winBy}
+            First to {set?.targetPoints} | Win by {rules.winBy}
           </span>
           {state.matchComplete && (
             <span className="text-green-300">Final</span>
