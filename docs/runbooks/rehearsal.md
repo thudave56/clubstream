@@ -12,7 +12,21 @@
 - `staging` and `production` environments are configured.
 - A production DB backup/snapshot can be created on demand.
 
-## Drill Steps
+## Drill Steps (Automated Workflow)
+1. Open `Rehearsal Deploy` workflow in GitHub Actions.
+2. Run `workflow_dispatch` with:
+   - `ref=<target-sha>`
+   - `rollback_ref=<known-good-sha>`
+   - `backup_checkpoint=<snapshot-id>`
+   - `ci_run_url=<release-gate run url>`
+3. Approve production environment protection when prompted.
+4. Confirm job sequence succeeds:
+   - `deploy-staging`
+   - `deploy-production`
+   - `rollback-staging`
+5. Download `rehearsal-evidence` artifact and store with release records.
+
+## Drill Steps (Manual Fallback)
 1. Choose target commit SHA and verify `release-gate` is successful.
 2. Trigger or confirm staging deploy for the same SHA.
 3. Execute smoke checks and verify:

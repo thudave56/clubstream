@@ -49,3 +49,12 @@
 ## Failure Path
 - If migration fails, follow `docs/runbooks/migration-failure.md`.
 - If app checks fail post-deploy, follow `docs/runbooks/rollback.md`.
+
+## Game-Day Rehearsal
+1. Use `Rehearsal Deploy` workflow for a full staging -> production -> staging rollback drill.
+2. Provide:
+   - `ref` (release candidate SHA)
+   - `rollback_ref` (known-good SHA)
+   - `backup_checkpoint` (captured before rehearsal production migration)
+   - `ci_run_url` (link to successful release-gate run)
+3. Download `rehearsal-evidence` artifact from the workflow and archive with release notes.
