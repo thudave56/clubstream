@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { validateEnv } from "@/lib/env";
+import { validateEnv } from "../lib/env";
 
 let cachedDb: NodePgDatabase | null = null;
 let pool: Pool | null = null;
