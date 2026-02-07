@@ -6,8 +6,14 @@ interface OverlayPageProps {
 }
 
 export default function OverlayPage({ params, searchParams }: OverlayPageProps) {
-  const transparent =
-    searchParams?.transparent === "1" || searchParams?.mode === "larix";
+  const isLarixMode = searchParams?.mode === "larix";
+  const transparent = searchParams?.transparent === "1" || isLarixMode;
 
-  return <OverlayClient matchId={params.id} transparent={transparent} />;
+  return (
+    <OverlayClient
+      matchId={params.id}
+      transparent={transparent}
+      autoLive={isLarixMode}
+    />
+  );
 }
