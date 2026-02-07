@@ -1,0 +1,60 @@
+projects:
+  - name: clubstream
+    environments:
+      - name: staging
+        services:
+          - name: clubstream-staging
+            type: web
+            runtime: node
+            plan: starter
+            region: oregon
+            branch: main
+            buildCommand: npm ci && npm run build
+            preDeployCommand: npm run db:migrate:staging && npm run db:seed
+            startCommand: npm run start
+            healthCheckPath: /api/health
+            autoDeployTrigger: checksPass
+            envVars:
+              - key: NODE_ENV
+                value: production
+              - key: DATABASE_URL
+                fromDatabase:
+                  name: clubstream-staging-db
+                  property: connectionString
+              # Must be 64 hex characters (32 bytes). Render will prompt on initial Blueprint apply.
+              - key: ENCRYPTION_KEY
+                sync: false
+              # Staging convenience only. Production seed should set a secure value.
+              - key: DEFAULT_ADMIN_PIN
+                value: "1234"
+        databases:
+          - name: clubstream-staging-db
+            plan: basic-256mb
+
+      - name: production
+        services:
+          - name: clubstream-production
+            type: web
+            runtime: node
+            plan: starter
+            region: oregon
+            branch: main
+            buildCommand: npm ci && npm run build
+            preDeployCommand: npm run db:migrate:prod
+            startCommand: npm run start
+            healthCheckPath: /api/health
+            autoDeployTrigger: off
+            envVars:
+              - key: NODE_ENV
+                value: production
+              - key: DATABASE_URL
+                fromDatabase:
+                  name: clubstream-production-db
+                  property: connectionString
+              # Must be 64 hex characters (32 bytes). Render will prompt on initial Blueprint apply.
+              - key: ENCRYPTION_KEY
+                sync: false
+        databases:
+          - name: clubstream-production-db
+            plan: basic-1gb
+
