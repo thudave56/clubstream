@@ -17,6 +17,7 @@ interface FormData {
   teamId: string;
   opponentName: string;
   tournamentId?: string;
+  tournamentName?: string;
   scheduledStart?: string;
   courtLabel?: string;
   create_pin?: string;
@@ -28,6 +29,7 @@ interface CreatedMatch {
   youtubeWatchUrl: string | null;
   larixUrl: string;
   matchTitle: string;
+  matchLink: string;
 }
 
 export default function MatchCreationForm() {
@@ -45,6 +47,8 @@ export default function MatchCreationForm() {
     opponentName: ""
   });
   const [copied, setCopied] = useState(false);
+  const [matchLinkCopied, setMatchLinkCopied] = useState(false);
+  const [tournamentSelection, setTournamentSelection] = useState("");
 
   useEffect(() => {
     // Load teams, tournaments, and PIN requirement in parallel
@@ -71,6 +75,7 @@ export default function MatchCreationForm() {
       };
 
       if (formData.tournamentId) body.tournamentId = formData.tournamentId;
+      if (formData.tournamentName) body.tournamentName = formData.tournamentName;
       if (formData.courtLabel) body.courtLabel = formData.courtLabel;
       if (formData.scheduledStart) {
         body.scheduledStart = new Date(formData.scheduledStart).toISOString();
@@ -96,19 +101,22 @@ export default function MatchCreationForm() {
       // Find team name for display
       const team = teams.find((t) => t.id === formData.teamId);
       const matchTitle = `${team?.displayName || "Team"} vs ${formData.opponentName}`;
+      const matchLink = `${window.location.origin}/m/${data.match.id}`;
 
       setCreatedMatch({
         id: data.match.id,
         opponentName: formData.opponentName,
         youtubeWatchUrl: data.match.youtubeWatchUrl,
         larixUrl: data.larixUrl,
-        matchTitle
+        matchTitle,
+        matchLink
       });
 
       setMessage({ type: "success", text: "Match created successfully!" });
 
       // Reset form
       setFormData({ teamId: "", opponentName: "" });
+      setTournamentSelection("");
     } catch {
       setMessage({ type: "error", text: "Network error. Please try again." });
     } finally {
@@ -122,6 +130,17 @@ export default function MatchCreationForm() {
       await navigator.clipboard.writeText(createdMatch.youtubeWatchUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback: ignore
+    }
+  };
+
+  const handleCopyMatchLink = async () => {
+    if (!createdMatch?.matchLink) return;
+    try {
+      await navigator.clipboard.writeText(createdMatch.matchLink);
+      setMatchLinkCopied(true);
+      setTimeout(() => setMatchLinkCopied(false), 2000);
     } catch {
       // Fallback: ignore
     }
@@ -158,13 +177,19 @@ export default function MatchCreationForm() {
             )}
           </div>
 
-          <div className="flex gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <a
               href={`/m/${createdMatch.id}`}
               className="text-sm text-blue-400 hover:underline"
             >
-              View match details
+              Open match details
             </a>
+            <button
+              onClick={handleCopyMatchLink}
+              className="text-left text-sm text-blue-400 hover:underline"
+            >
+              {matchLinkCopied ? "Match link copied" : "Copy match link"}
+            </button>
             {createdMatch.youtubeWatchUrl && (
               <a
                 href={createdMatch.youtubeWatchUrl}
@@ -251,13 +276,24 @@ export default function MatchCreationForm() {
             </label>
             <select
               id="tournamentId"
-              value={formData.tournamentId || ""}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  tournamentId: e.target.value || undefined
-                })
-              }
+              value={tournamentSelection}
+              onChange={(e) => {
+                const value = e.target.value;
+                setTournamentSelection(value);
+                if (value === "other" || value === "") {
+                  setFormData({
+                    ...formData,
+                    tournamentId: undefined,
+                    tournamentName: value === "other" ? "" : undefined
+                  });
+                } else {
+                  setFormData({
+                    ...formData,
+                    tournamentId: value,
+                    tournamentName: undefined
+                  });
+                }
+              }}
               className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-white"
               disabled={loading}
             >
@@ -267,8 +303,36 @@ export default function MatchCreationForm() {
                   {t.name}
                 </option>
               ))}
+              <option value="other">Other (type name)</option>
             </select>
           </div>
+
+          {tournamentSelection === "other" && (
+            <div>
+              <label
+                htmlFor="tournamentName"
+                className="mb-2 block text-sm font-medium"
+              >
+                Tournament Name
+              </label>
+              <input
+                id="tournamentName"
+                type="text"
+                value={formData.tournamentName || ""}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    tournamentName: e.target.value || undefined
+                  })
+                }
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-white"
+                disabled={loading}
+                required={tournamentSelection === "other"}
+                maxLength={120}
+                placeholder="e.g. NEQ Boston"
+              />
+            </div>
+          )}
 
           <div>
             <label

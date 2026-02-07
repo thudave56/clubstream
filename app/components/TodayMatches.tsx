@@ -17,6 +17,8 @@ interface Match {
 export default function TodayMatches() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
+  const [origin, setOrigin] = useState<string>("");
+  const [copiedMatchId, setCopiedMatchId] = useState<string | null>(null);
 
   const loadMatches = async () => {
     try {
@@ -32,6 +34,7 @@ export default function TodayMatches() {
   };
 
   useEffect(() => {
+    setOrigin(window.location.origin);
     loadMatches();
     const interval = setInterval(loadMatches, 30000);
     return () => clearInterval(interval);
@@ -53,6 +56,17 @@ export default function TodayMatches() {
       hour: "numeric",
       minute: "2-digit"
     });
+  };
+
+  const handleCopyMatchLink = async (matchId: string) => {
+    if (!origin) return;
+    try {
+      await navigator.clipboard.writeText(`${origin}/m/${matchId}`);
+      setCopiedMatchId(matchId);
+      setTimeout(() => setCopiedMatchId(null), 2000);
+    } catch {
+      // Ignore
+    }
   };
 
   if (loading) {
@@ -101,6 +115,16 @@ export default function TodayMatches() {
                       Start Streaming
                     </a>
                   )}
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleCopyMatchLink(match.id);
+                    }}
+                    className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-900"
+                  >
+                    {copiedMatchId === match.id ? "Link Copied" : "Copy Link"}
+                  </button>
                   {match.status === "live" && (
                     <button
                       onClick={() => handleEndMatch(match.id)}

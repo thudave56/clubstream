@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { matches, teams } from "@/db/schema";
+import { matches, teams, tournaments } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { StatusBadge } from "../../components/StatusBadge";
 import MatchDetailClient from "./MatchDetailClient";
+import { buildYouTubeDescription, buildYouTubeTitle } from "@/lib/youtube-title";
 
 interface MatchPageProps {
   params: { id: string };
@@ -15,14 +16,23 @@ async function getMatch(id: string) {
       id: matches.id,
       teamDisplayName: teams.displayName,
       opponentName: matches.opponentName,
+      tournamentName: matches.tournamentName,
+      tournamentDisplayName: tournaments.name,
       scheduledStart: matches.scheduledStart,
       courtLabel: matches.courtLabel,
       status: matches.status,
       youtubeWatchUrl: matches.youtubeWatchUrl,
+      youtubeTitleOverride: matches.youtubeTitleOverride,
+      youtubeDescriptionOverride: matches.youtubeDescriptionOverride,
+      rulesBestOf: matches.rulesBestOf,
+      rulesPointsToWin: matches.rulesPointsToWin,
+      rulesFinalSetPoints: matches.rulesFinalSetPoints,
+      rulesWinBy: matches.rulesWinBy,
       createdAt: matches.createdAt
     })
     .from(matches)
     .innerJoin(teams, eq(matches.teamId, teams.id))
+    .leftJoin(tournaments, eq(matches.tournamentId, tournaments.id))
     .where(eq(matches.id, id))
     .limit(1);
 
@@ -36,7 +46,16 @@ export default async function MatchPage({ params }: MatchPageProps) {
     notFound();
   }
 
+  const tournamentName = match.tournamentDisplayName || match.tournamentName || null;
   const matchTitle = `${match.teamDisplayName} vs ${match.opponentName}`;
+  const matchDate = match.scheduledStart ?? match.createdAt;
+  const defaultTitle = buildYouTubeTitle({
+    tournamentName,
+    teamName: match.teamDisplayName,
+    opponentName: match.opponentName,
+    matchDate
+  });
+  const defaultDescription = buildYouTubeDescription(match.courtLabel);
   const isPreLive = ["draft", "scheduled", "ready"].includes(match.status);
 
   return (
@@ -72,6 +91,17 @@ export default async function MatchPage({ params }: MatchPageProps) {
         status={match.status}
         youtubeWatchUrl={match.youtubeWatchUrl}
         isPreLive={isPreLive}
+        tournamentName={tournamentName}
+        defaultTitle={defaultTitle}
+        defaultDescription={defaultDescription || ""}
+        youtubeTitleOverride={match.youtubeTitleOverride || ""}
+        youtubeDescriptionOverride={match.youtubeDescriptionOverride || ""}
+        rules={{
+          bestOf: match.rulesBestOf,
+          pointsToWin: match.rulesPointsToWin,
+          finalSetPoints: match.rulesFinalSetPoints,
+          winBy: match.rulesWinBy
+        }}
       />
 
       {/* Action buttons */}
@@ -97,10 +127,6 @@ export default async function MatchPage({ params }: MatchPageProps) {
         )}
       </div>
 
-      {/* Scoreboard placeholder for PR #7 */}
-      <div className="rounded-2xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-400">
-        Scoreboard coming soon
-      </div>
     </main>
   );
 }

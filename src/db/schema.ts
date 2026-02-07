@@ -65,15 +65,22 @@ export const matches = pgTable("matches", {
   tournamentId: uuid("tournament_id").references(() => tournaments.id, {
     onDelete: "set null"
   }),
+  tournamentName: text("tournament_name"),
   scheduledStart: timestamp("scheduled_start", { withTimezone: true }),
   courtLabel: text("court_label"),
   status: matchStatusEnum("status").default("draft").notNull(),
   youtubeBroadcastId: text("youtube_broadcast_id"),
   youtubeWatchUrl: text("youtube_watch_url"),
+  youtubeTitleOverride: text("youtube_title_override"),
+  youtubeDescriptionOverride: text("youtube_description_override"),
   streamPoolId: uuid("stream_pool_id").references(() => streamPool.id, {
     onDelete: "set null"
   }),
   idempotencyKey: text("idempotency_key").unique(),
+  rulesBestOf: integer("rules_best_of").default(3).notNull(),
+  rulesPointsToWin: integer("rules_points_to_win").default(25).notNull(),
+  rulesFinalSetPoints: integer("rules_final_set_points").default(15).notNull(),
+  rulesWinBy: integer("rules_win_by").default(2).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
 });

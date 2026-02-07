@@ -10,6 +10,7 @@ import {
   updateStreamReservation,
   type ReservedStreamData
 } from "./stream-pool";
+import { buildYouTubeDescription, buildYouTubeTitle } from "./youtube-title";
 
 /**
  * Custom error for when no streams are available in the pool
@@ -28,6 +29,7 @@ export const createMatchSchema = z.object({
   teamId: z.string().uuid(),
   opponentName: z.string().min(1).max(100),
   tournamentId: z.string().uuid().optional(),
+  tournamentName: z.string().min(1).max(120).optional(),
   scheduledStart: z.string().datetime().optional(),
   courtLabel: z.string().max(20).optional(),
   privacyStatus: z.enum(["public", "unlisted"]).optional(),
@@ -61,6 +63,7 @@ export interface MatchCreationResult {
   match: typeof matches.$inferSelect;
   larixUrl: string;
 }
+
 
 /**
  * Create a YouTube live broadcast and bind it to a stream
@@ -186,7 +189,9 @@ export async function transitionBroadcast(
 export function generateLarixUrl(
   ingestAddress: string,
   streamName: string,
-  matchTitle: string
+  matchTitle: string,
+  overlayUrl?: string,
+  platform?: "ios" | "android"
 ): string {
   // Combine RTMP URL and stream key
   const rtmpUrl = `${ingestAddress}/${streamName}`;
@@ -200,6 +205,24 @@ export function generateLarixUrl(
   params.append("enc[vid][fps]", "30");
   params.append("enc[vid][bitrate]", "2500"); // Kbps
   params.append("enc[aud][bitrate]", "128");  // Kbps
+
+  if (overlayUrl) {
+    params.append("widget[][name]", "Scoreboard");
+    params.append("widget[][url]", overlayUrl);
+    params.append("widget[][mode]", "s");
+    params.append("widget[][overwrite]", "on");
+    params.append("widget[][active]", "on");
+    params.append("widget[][x]", "0.05");
+    params.append("widget[][y]", "0.05");
+
+    if (platform === "ios") {
+      params.append("widget[][w]", "0.9");
+      params.append("widget[][h]", "0.2");
+    } else if (platform === "android") {
+      params.append("widget[][w]", "900");
+      params.append("widget[][h]", "180");
+    }
+  }
 
   return `larix://set/v1?${params.toString()}`;
 }
@@ -256,6 +279,7 @@ export async function createMatch(
   }
 
   // Verify tournament exists if provided
+  let tournamentName: string | undefined;
   if (validated.tournamentId) {
     const tournament = await db
       .select()
@@ -266,6 +290,11 @@ export async function createMatch(
     if (tournament.length === 0) {
       throw new Error("Tournament not found");
     }
+
+    tournamentName = tournament[0].name;
+  }
+  if (!validated.tournamentId && validated.tournamentName) {
+    tournamentName = validated.tournamentName;
   }
 
   let reservedStream: ReservedStreamData | null = null;
@@ -283,10 +312,15 @@ export async function createMatch(
     const defaultScheduledStart = new Date(Date.now() + 5 * 60 * 1000);
 
     const broadcastDetails: BroadcastDetails = {
-      title: `${team[0].displayName} vs ${validated.opponentName}`,
-      description: validated.courtLabel
-        ? `Court: ${validated.courtLabel}`
-        : undefined,
+      title: buildYouTubeTitle({
+        tournamentName,
+        teamName: team[0].displayName,
+        opponentName: validated.opponentName,
+        matchDate: validated.scheduledStart
+          ? new Date(validated.scheduledStart)
+          : new Date()
+      }),
+      description: buildYouTubeDescription(validated.courtLabel),
       scheduledStart: validated.scheduledStart
         ? new Date(validated.scheduledStart)
         : defaultScheduledStart,
@@ -305,6 +339,7 @@ export async function createMatch(
         teamId: validated.teamId,
         opponentName: validated.opponentName,
         tournamentId: validated.tournamentId,
+        tournamentName: validated.tournamentId ? null : validated.tournamentName,
         scheduledStart: validated.scheduledStart
           ? new Date(validated.scheduledStart)
           : null,
@@ -324,10 +359,15 @@ export async function createMatch(
     await updateStreamReservation(reservedStream.id, match.id);
 
     // Generate Larix URL
+    const baseUrl = process.env.APP_BASE_URL;
+    const overlayUrl = baseUrl
+      ? `${baseUrl}/m/${match.id}/overlay?mode=larix`
+      : undefined;
     const larixUrl = generateLarixUrl(
       reservedStream.ingestAddress,
       reservedStream.streamName,
-      `${team[0].displayName} vs ${validated.opponentName}`
+      `${team[0].displayName} vs ${validated.opponentName}`,
+      overlayUrl
     );
 
     // Log to audit

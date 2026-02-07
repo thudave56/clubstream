@@ -14,6 +14,19 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   const matchId = params.id;
+  const url = new URL(request.url);
+  const platformParam = url.searchParams.get("platform");
+  const platform =
+    platformParam === "ios" || platformParam === "android"
+      ? platformParam
+      : undefined;
+  const requestBaseUrl = `${url.protocol}//${url.host}`;
+  const envBaseUrl = process.env.APP_BASE_URL;
+  const isLocalhost =
+    url.hostname === "localhost" ||
+    url.hostname === "127.0.0.1" ||
+    url.hostname === "::1";
+  const baseUrl = isLocalhost && envBaseUrl ? envBaseUrl : requestBaseUrl;
 
   // Load match with team info
   const matchRows = await db
@@ -66,10 +79,13 @@ export async function GET(
 
   const stream = streamRows[0];
   const matchTitle = `${match.teamDisplayName} vs ${match.opponentName}`;
+  const overlayUrl = `${baseUrl}/m/${matchId}/overlay?mode=larix`;
   const larixUrl = generateLarixUrl(
     stream.ingestAddress,
     stream.streamName,
-    matchTitle
+    matchTitle,
+    overlayUrl,
+    platform
   );
 
   return Response.json({ larixUrl, matchTitle });

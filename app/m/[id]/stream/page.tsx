@@ -22,8 +22,12 @@ export default function StreamPage({ params }: StreamPageProps) {
     const mobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
     setIsDesktop(!mobile);
 
+    const platform =
+      /iPhone|iPad|iPod/i.test(ua) ? "ios" : /Android/i.test(ua) ? "android" : "";
+
     // Fetch Larix URL
-    fetch(`/api/matches/${params.id}/larix`)
+    const query = platform ? `?platform=${platform}` : "";
+    fetch(`/api/matches/${params.id}/larix${query}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load");
         return res.json();
