@@ -11,11 +11,24 @@
 - GitHub repository admin access (environments, secrets, branch protection).
 - Discord webhook endpoint ready for deploy notifications.
 
+## Fast Path: Render Blueprint
+1. Ensure `render.yaml` exists on the target branch (recommended: `main`).
+2. In Render Dashboard, create a new Blueprint from the GitHub repo.
+3. Apply the Blueprint and provide any prompted secrets (notably `ENCRYPTION_KEY`).
+4. For production, set a secure `DEFAULT_ADMIN_PIN` in the `clubstream-production` service environment.
+5. Run `npm run db:seed` as a Render one-off job.
+
 ## Staging Setup
 1. Create Render Web Service for staging from repository.
+   - Runtime: `Node`
+   - Build command: `npm ci && npm run build`
+   - Start command: `npm run start`
+   - Health check path: `/api/health`
+   - Auto-deploy: Disabled (if using GitHub Actions to trigger deploys)
+   - Node version: `20` (set `NODE_VERSION=20` in Render if needed)
 2. Create Render Postgres instance for staging.
 3. Set Render staging environment variables:
-   - `DATABASE_URL`
+   - `DATABASE_URL` (use the Render Postgres connection string)
    - `APP_BASE_URL`
    - `ENCRYPTION_KEY`
    - `SENTRY_DSN` (optional but recommended)
@@ -40,9 +53,15 @@
 
 ## Production Setup
 1. Create Render Web Service for production.
+   - Runtime: `Node`
+   - Build command: `npm ci && npm run build`
+   - Start command: `npm run start`
+   - Health check path: `/api/health`
+   - Auto-deploy: Disabled (if using GitHub Actions to trigger deploys)
+   - Node version: `20` (set `NODE_VERSION=20` in Render if needed)
 2. Create Render Postgres instance for production.
 3. Set Render production environment variables:
-   - `DATABASE_URL`
+   - `DATABASE_URL` (use the Render Postgres connection string)
    - `APP_BASE_URL`
    - `ENCRYPTION_KEY`
    - `SENTRY_DSN` (optional but recommended)
