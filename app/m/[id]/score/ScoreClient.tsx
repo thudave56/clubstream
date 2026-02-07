@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface MatchInfo {
   id: string;
@@ -52,6 +52,13 @@ export default function ScoreClient({ matchId }: ScoreClientProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [overrideRules, setOverrideRules] = useState(false);
+  const [realtimeMode, setRealtimeMode] = useState<"sse" | "polling">("sse");
+  const [sseStatus, setSseStatus] = useState<
+    "connecting" | "connected" | "reconnecting"
+  >("connecting");
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const connectNowRef = useRef<(() => void) | null>(null);
 
   const fetchScore = useCallback(async () => {
     try {
@@ -68,19 +75,106 @@ export default function ScoreClient({ matchId }: ScoreClientProps) {
     } finally {
       setLoading(false);
     }
-  }, [matchId]);
+  }, [matchId]);
 
-  // TODO: Replace polling with Server-Sent Events (SSE) or WebSockets for
-  // real-time score updates. Polling every 5s adds latency and unnecessary
-  // server load — especially during tournaments with many concurrent matches.
-  // An SSE endpoint at /api/matches/:id/score/stream would push updates
-  // instantly when scores change, and the polling here can serve as a fallback
-  // for reconnection. Also stop polling when matchComplete is true.
+  // Realtime score updates via SSE. If the stream errors, fall back to polling
+  // every 5 seconds and periodically try to reconnect SSE.
+  // Initial load.
   useEffect(() => {
     fetchScore();
-    const interval = setInterval(fetchScore, 5000);
-    return () => clearInterval(interval);
   }, [fetchScore]);
+
+  const realtimeEnabled = !(
+    data?.state?.matchComplete ||
+    data?.match?.status === "ended" ||
+    data?.match?.status === "canceled"
+  );
+
+  useEffect(() => {
+    if (!realtimeEnabled) {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      if (reconnectTimerRef.current) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      connectNowRef.current = null;
+      return;
+    }
+
+    let stopped = false;
+
+    const cleanup = () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      if (reconnectTimerRef.current) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+    };
+
+    const connect = () => {
+      if (stopped) return;
+      cleanup();
+
+      const es = new EventSource(`/api/matches/${matchId}/score/stream`);
+      eventSourceRef.current = es;
+
+      setSseStatus((prev) =>
+        prev === "connected" ? "reconnecting" : "connecting"
+      );
+
+      es.onopen = () => {
+        if (stopped) return;
+        setSseStatus("connected");
+        setRealtimeMode("sse");
+      };
+
+      es.onmessage = () => {
+        fetchScore();
+      };
+
+      es.onerror = () => {
+        if (stopped) return;
+        try {
+          es.close();
+        } catch {
+          // ignore
+        }
+        eventSourceRef.current = null;
+
+        setSseStatus("reconnecting");
+        setRealtimeMode("polling");
+
+        reconnectTimerRef.current = window.setTimeout(() => {
+          if (stopped) return;
+          connect();
+        }, 10000);
+      };
+    };
+
+    connectNowRef.current = connect;
+    connect();
+
+    return () => {
+      stopped = true;
+      cleanup();
+      connectNowRef.current = null;
+    };
+  }, [fetchScore, matchId, realtimeEnabled]);
+
+  useEffect(() => {
+    if (!realtimeEnabled) return;
+    if (realtimeMode !== "polling") return;
+
+    fetchScore();
+    const interval = window.setInterval(fetchScore, 5000);
+    return () => window.clearInterval(interval);
+  }, [fetchScore, realtimeEnabled, realtimeMode]);
 
   const currentSet = useMemo(() => {
     if (!data) return null;
@@ -159,8 +253,32 @@ export default function ScoreClient({ matchId }: ScoreClientProps) {
           {match.teamDisplayName} vs {match.opponentName}
         </h1>
         <p className="text-sm text-slate-400">
-          {match.tournamentName || "Clubstream"} • Set {state.currentSetNumber} of {rules.bestOf}
+          {match.tournamentName || "Clubstream"} | Set {state.currentSetNumber} of {rules.bestOf}
         </p>
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5">
+            {realtimeEnabled
+              ? realtimeMode === "polling"
+                ? "Polling"
+                : sseStatus === "connected"
+                ? "Connected"
+                : "Reconnecting"
+              : "Stopped"}
+          </span>
+          {realtimeEnabled && realtimeMode === "polling" && (
+            <button
+              type="button"
+              onClick={() => {
+                setRealtimeMode("sse");
+                setSseStatus("connecting");
+                connectNowRef.current?.();
+              }}
+              className="text-slate-400 hover:text-slate-300"
+            >
+              Try SSE
+            </button>
+          )}
+        </div>
       </header>
 
       <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-center">
@@ -182,7 +300,7 @@ export default function ScoreClient({ matchId }: ScoreClientProps) {
         </div>
 
         <div className="mt-6 text-sm text-slate-400">
-          Target {scoreboard?.targetPoints} • Win by {rules.winBy}
+          Target {scoreboard?.targetPoints} | Win by {rules.winBy}
           {state.matchComplete && state.winner && (
             <span className="ml-2 text-green-400">
               {state.winner === "home" ? match.teamDisplayName : match.opponentName} won
