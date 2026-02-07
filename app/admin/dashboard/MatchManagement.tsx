@@ -121,7 +121,7 @@ export default function MatchManagement({ onPoolStatusChange }: MatchManagementP
 
   const loadTeams = async () => {
     try {
-      const response = await fetch("/api/teams");
+      const response = await fetch("/api/teams", { cache: "no-store" });
       const data = await response.json();
       setTeams(data.teams || []);
     } catch (error) {

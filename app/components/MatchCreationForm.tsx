@@ -53,9 +53,9 @@ export default function MatchCreationForm() {
   useEffect(() => {
     // Load teams, tournaments, and PIN requirement in parallel
     Promise.all([
-      fetch("/api/teams").then((r) => r.json()),
-      fetch("/api/tournaments").then((r) => r.json()),
-      fetch("/api/settings/public").then((r) => r.json())
+      fetch("/api/teams", { cache: "no-store" }).then((r) => r.json()),
+      fetch("/api/tournaments", { cache: "no-store" }).then((r) => r.json()),
+      fetch("/api/settings/public", { cache: "no-store" }).then((r) => r.json())
     ]).then(([teamsData, tournamentsData, settingsData]) => {
       setTeams(teamsData.teams || []);
       setTournaments(tournamentsData.tournaments || []);

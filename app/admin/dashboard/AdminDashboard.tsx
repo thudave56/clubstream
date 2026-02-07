@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import MatchManagement from "./MatchManagement";
+import TeamManagement from "./TeamManagement";
 
 interface Settings {
   requireCreatePin: boolean;
@@ -564,6 +565,8 @@ export default function AdminDashboard() {
             </div>
           </div>
         </section>
+
+        <TeamManagement onChanged={loadAuditLog} />
 
         {/* Match Management */}
         {settings?.oauthStatus === "connected" && (
