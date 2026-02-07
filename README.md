@@ -90,6 +90,10 @@ Typical required environment variables on the Render web service:
 
 ## Troubleshooting
 
+### Parent quick start
+
+See `docs/runbooks/parent-quickstart.md`.
+
 ### Database connection issues
 
 - Verify `DATABASE_URL` is correct.
@@ -99,6 +103,7 @@ Typical required environment variables on the Render web service:
 
 - E2E tests may require the Next dev server (depends on Playwright config).
 - Clear the Next cache: delete `.next`.
+- In CI and non-production, YouTube API calls are automatically mocked when Google OAuth env vars are not provided.
 
 ### Admin login not working
 

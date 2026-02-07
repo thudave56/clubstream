@@ -57,33 +57,32 @@ test.describe('Admin Authentication', () => {
   });
 
   // TODO: Investigate rate limiting test failure - may be timing or IP tracking issue in test environment
-  test.skip('should show rate limiting after multiple failed attempts', async ({ page, request }) => {
-    // Reset rate limiter before this test
-    const resetResponse = await request.post('http://localhost:3000/api/admin/test-reset');
+  test('should show rate limiting after multiple failed attempts', async ({ request }) => {
+    const headers = { 'x-test-client-ip': '203.0.113.10' };
+
+    // Reset rate limiter before this test (test-only endpoint).
+    const resetResponse = await request.post('http://localhost:3000/api/admin/test-reset', { headers });
     expect(resetResponse.ok()).toBeTruthy();
-    await page.waitForTimeout(1000); // Give server time to reset
 
-    await page.goto('/admin');
-
-    // Attempt login 5 times with wrong PIN - each attempt must complete
+    // Attempt login 5 times with wrong PIN.
     for (let i = 0; i < 5; i++) {
-      await page.getByLabel('Admin PIN').fill('9999');
-      await page.getByRole('button', { name: 'Sign In' }).click();
-
-      // Wait for the "Invalid PIN" error to appear to ensure request completed
-      await expect(page.getByText('Invalid PIN')).toBeVisible({ timeout: 5000 });
-      await page.waitForTimeout(300);
-
-      // Clear the input for next attempt
-      await page.getByLabel('Admin PIN').clear();
+      const res = await request.post('http://localhost:3000/api/admin/login', {
+        headers,
+        data: { pin: '9999' }
+      });
+      expect(res.status()).toBe(401);
     }
 
-    // 6th attempt should show rate limit error
-    await page.getByLabel('Admin PIN').fill('9999');
-    await page.getByRole('button', { name: 'Sign In' }).click();
+    // 6th attempt should be rate limited.
+    const limited = await request.post('http://localhost:3000/api/admin/login', {
+      headers,
+      data: { pin: '9999' }
+    });
 
-    // Should show rate limit error instead of "Invalid PIN"
-    await expect(page.getByText(/Too many attempts/)).toBeVisible({ timeout: 10000 });
+    expect(limited.status()).toBe(429);
+    const payload = await limited.json();
+    expect(payload.error).toContain('Too many');
+    expect(payload.retryAfter).toBeGreaterThan(0);
   });
 
   test('should not require PIN input to be visible (password field)', async ({ page }) => {

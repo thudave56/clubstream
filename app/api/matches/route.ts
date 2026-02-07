@@ -26,6 +26,7 @@ import {
   pinAttemptLimiter
 } from "@/lib/match-rate-limit";
 import { sanitizeText } from "@/lib/sanitize";
+import { getClientIp } from "@/lib/request-ip";
 
 export const dynamic = "force-dynamic";
 
@@ -171,10 +172,7 @@ const publicCreateMatchSchema = createMatchSchema.extend({
  * Public match creation with optional PIN verification and rate limiting.
  */
 export async function POST(request: Request) {
-  const ip =
-    request.headers.get("x-forwarded-for") ||
-    request.headers.get("x-real-ip") ||
-    "unknown";
+  const ip = getClientIp(request);
 
   // Rate limit match creation
   if (matchCreationLimiter.isRateLimited(ip)) {

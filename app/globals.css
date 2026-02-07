@@ -5,3 +5,9 @@
 body {
   font-family: "Inter", system-ui, sans-serif;
 }
+
+/* Keyboard accessibility: ensure a visible focus ring even when components omit Tailwind focus classes. */
+:focus-visible {
+  outline: 2px solid rgb(59 130 246); /* tailwind blue-500 */
+  outline-offset: 2px;
+}

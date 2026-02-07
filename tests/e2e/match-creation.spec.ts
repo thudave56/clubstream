@@ -26,7 +26,8 @@ async function disconnectOAuth(page: Page) {
  */
 async function populateTestStreamPool(page: Page) {
   const response = await page.request.post(
-    "http://localhost:3000/api/admin/test-stream-pool"
+    "http://localhost:3000/api/admin/test-stream-pool-reset",
+    { data: { count: 5 } }
   );
   expect(response.ok()).toBeTruthy();
 }
@@ -46,18 +47,18 @@ test.describe("Match Creation", () => {
     ).not.toBeVisible();
   });
 
-  // TODO: Fix OAuth simulation timing in test environment
-  test.skip("should show match creation form when OAuth connected", async ({
+  test("should show match creation form when OAuth connected", async ({
     page
   }) => {
     await loginAsAdmin(page);
     await simulateOAuthConnect(page);
     await populateTestStreamPool(page);
-    await page.reload();
-    await page.waitForLoadState("networkidle");
 
-    // Wait for Match Management to load
-    await page.waitForTimeout(1000);
+    // Reload and wait for connected state to be reflected.
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(
+      page.locator("span.rounded-full:has-text('connected')")
+    ).toBeVisible({ timeout: 10000 });
 
     // Check Match Management section exists
     await expect(
@@ -72,16 +73,16 @@ test.describe("Match Creation", () => {
     ).toBeVisible();
   });
 
-  // TODO: Fix OAuth simulation timing in test environment
-  test.skip("should create match successfully", async ({ page }) => {
+  test("should create match successfully", async ({ page }) => {
     await loginAsAdmin(page);
     await simulateOAuthConnect(page);
     await populateTestStreamPool(page);
-    await page.reload();
-    await page.waitForLoadState("networkidle");
 
-    // Wait for form to load
-    await page.waitForTimeout(1500);
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(
+      page.locator("span.rounded-full:has-text('connected')")
+    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: "Match Management" })).toBeVisible();
 
     // Fill form
     const teamSelect = page.getByLabel("Team *");
@@ -93,8 +94,8 @@ test.describe("Match Creation", () => {
     // Submit form
     await page.getByRole("button", { name: "Create Match" }).click();
 
-    // Wait for success message
-    await expect(page.getByText("Match created successfully!")).toBeVisible({
+    // Wait for success message (current UI copy).
+    await expect(page.getByText(/Match created!/).first()).toBeVisible({
       timeout: 10000
     });
 
@@ -102,15 +103,13 @@ test.describe("Match Creation", () => {
     await expect(page.getByText("Scan with phone camera")).toBeVisible();
   });
 
-  // TODO: Fix OAuth simulation timing in test environment
-  test.skip("should display match list", async ({ page }) => {
+  test("should display match list", async ({ page }) => {
     await loginAsAdmin(page);
     await simulateOAuthConnect(page);
-    await page.reload();
-    await page.waitForLoadState("networkidle");
-
-    // Wait for matches to load
-    await page.waitForTimeout(1500);
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(
+      page.locator("span.rounded-full:has-text('connected')")
+    ).toBeVisible({ timeout: 10000 });
 
     // Check Recent Matches heading
     await expect(
@@ -120,30 +119,29 @@ test.describe("Match Creation", () => {
 });
 
 test.describe("Match Management", () => {
-  // TODO: Fix OAuth simulation timing in test environment
-  test.skip("should show status badges with correct colors", async ({
+  test("should show status badges with correct colors", async ({
     page
   }) => {
     await loginAsAdmin(page);
     await simulateOAuthConnect(page);
-    await page.reload();
-    await page.waitForLoadState("networkidle");
-
-    await page.waitForTimeout(1500);
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(
+      page.locator("span.rounded-full:has-text('connected')")
+    ).toBeVisible({ timeout: 10000 });
 
     // Check for status badges (at least draft status should exist)
     const badges = page.locator(".rounded-full.px-3");
     await expect(badges.first()).toBeVisible();
   });
 
-  // TODO: Fix OAuth simulation timing in test environment
-  test.skip("should allow canceling draft match", async ({ page }) => {
+  test("should allow canceling draft match", async ({ page }) => {
     await loginAsAdmin(page);
     await simulateOAuthConnect(page);
-    await page.reload();
-    await page.waitForLoadState("networkidle");
-
-    await page.waitForTimeout(1500);
+    await populateTestStreamPool(page);
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(
+      page.locator("span.rounded-full:has-text('connected')")
+    ).toBeVisible({ timeout: 10000 });
 
     // Look for Cancel button on draft matches
     const cancelButton = page.getByRole("button", { name: "Cancel" }).first();
@@ -158,7 +156,7 @@ test.describe("Match Management", () => {
       await cancelButton.click();
 
       // Wait for success message
-      await expect(page.getByText("Match canceled")).toBeVisible({
+      await expect(page.getByText("Match canceled").first()).toBeVisible({
         timeout: 5000
       });
     }

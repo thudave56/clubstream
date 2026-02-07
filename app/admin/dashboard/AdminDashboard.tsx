@@ -104,7 +104,7 @@ export default function AdminDashboard() {
 
   const loadSettings = async () => {
     try {
-      const response = await fetch("/api/admin/settings");
+      const response = await fetch("/api/admin/settings", { cache: "no-store" });
 
       if (response.status === 401) {
         router.push("/admin");
@@ -134,7 +134,7 @@ export default function AdminDashboard() {
     setAuditError("");
 
     try {
-      const response = await fetch("/api/admin/audit");
+      const response = await fetch("/api/admin/audit", { cache: "no-store" });
 
       if (response.status === 401) {
         router.push("/admin");
@@ -156,7 +156,7 @@ export default function AdminDashboard() {
 
   const loadPoolStatus = async () => {
     try {
-      const response = await fetch("/api/admin/stream-pool/status");
+      const response = await fetch("/api/admin/stream-pool/status", { cache: "no-store" });
 
       if (!response.ok) {
         throw new Error("Failed to load pool status");

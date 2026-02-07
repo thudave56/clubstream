@@ -277,11 +277,11 @@ export default function OverlayClient({
         <div className="mt-3 grid gap-2">
           <div className="flex items-center justify-between gap-6 text-lg font-semibold">
             <span className="truncate">{match.teamDisplayName}</span>
-            <span className="text-2xl text-blue-300">{set?.homeScore ?? 0}</span>
+            <span data-testid="overlay-home" className="text-2xl text-blue-300">{set?.homeScore ?? 0}</span>
           </div>
           <div className="flex items-center justify-between gap-6 text-lg font-semibold">
             <span className="truncate">{match.opponentName}</span>
-            <span className="text-2xl text-emerald-300">{set?.awayScore ?? 0}</span>
+            <span data-testid="overlay-away" className="text-2xl text-emerald-300">{set?.awayScore ?? 0}</span>
           </div>
         </div>
 

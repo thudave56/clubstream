@@ -286,14 +286,14 @@ export default function ScoreClient({ matchId }: ScoreClientProps) {
           <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
             <div className="text-sm uppercase tracking-widest text-slate-400">Home</div>
             <div className="mt-2 text-2xl font-semibold">{match.teamDisplayName}</div>
-            <div className="mt-4 text-5xl font-bold text-blue-400">
+            <div data-testid="score-home" className="mt-4 text-5xl font-bold text-blue-400">
               {scoreboard?.homeScore ?? 0}
             </div>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
             <div className="text-sm uppercase tracking-widest text-slate-400">Away</div>
             <div className="mt-2 text-2xl font-semibold">{match.opponentName}</div>
-            <div className="mt-4 text-5xl font-bold text-emerald-400">
+            <div data-testid="score-away" className="mt-4 text-5xl font-bold text-emerald-400">
               {scoreboard?.awayScore ?? 0}
             </div>
           </div>
