@@ -9,7 +9,20 @@ const sha = process.env.DEPLOY_SHA;
 async function requestJson(url, options = {}) {
   const response = await fetch(url, options);
   const text = await response.text();
-  const json = text ? JSON.parse(text) : {};
+  
+  let json = {};
+  if (text) {
+    try {
+      json = JSON.parse(text);
+    } catch (error) {
+      // If parsing fails, include raw text in error for debugging
+      if (!response.ok) {
+        throw new Error(`Request failed ${response.status}: ${text}`);
+      }
+      // For successful responses with non-JSON body (e.g., deploy hooks), return empty object
+    }
+  }
+  
   if (!response.ok) {
     throw new Error(`Request failed ${response.status}: ${JSON.stringify(json)}`);
   }

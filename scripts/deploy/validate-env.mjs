@@ -1,5 +1,6 @@
 const REQUIRED = ["DATABASE_URL", "ENCRYPTION_KEY", "APP_BASE_URL"];
 const hasApi = Boolean(process.env.RENDER_API_KEY) && Boolean(process.env.RENDER_SERVICE_ID);
+const hasHook = Boolean(process.env.RENDER_DEPLOY_HOOK_URL);
 const errors = [];
 
 for (const key of REQUIRED) {
@@ -8,8 +9,8 @@ for (const key of REQUIRED) {
   }
 }
 
-if (!hasApi) {
-  errors.push("Missing Render API credentials: provide RENDER_API_KEY and RENDER_SERVICE_ID");
+if (!hasApi && !hasHook) {
+  errors.push("Missing Render deployment configuration: provide either (RENDER_API_KEY and RENDER_SERVICE_ID) or RENDER_DEPLOY_HOOK_URL");
 }
 
 if (process.env.RUN_DISCORD_NOTIFY === "true" && !process.env.DISCORD_WEBHOOK_URL) {
