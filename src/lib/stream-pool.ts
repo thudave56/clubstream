@@ -1,7 +1,7 @@
 import { getYouTubeClient } from "./youtube-auth";
 import { db } from "@/db";
 import { streamPool } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, lt, or } from "drizzle-orm";
 
 /**
  * Data returned when creating a YouTube stream
@@ -122,11 +122,52 @@ export async function initializeStreamPool(count: number): Promise<InitResult> {
   };
 }
 
+const RESERVED_TIMEOUT_MS = 6 * 60 * 60 * 1000; // 6 hours
+const IN_USE_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/**
+ * Recover streams that have been stuck in reserved or in_use state too long.
+ * Reserved streams older than 6 hours and in_use streams older than 24 hours
+ * are reset to available.
+ * @returns Number of streams recovered
+ */
+export async function recoverStuckStreams(): Promise<number> {
+  const now = Date.now();
+  const reservedCutoff = new Date(now - RESERVED_TIMEOUT_MS);
+  const inUseCutoff = new Date(now - IN_USE_TIMEOUT_MS);
+
+  const stuckStreams = await db
+    .select({ id: streamPool.id })
+    .from(streamPool)
+    .where(
+      or(
+        and(eq(streamPool.status, "reserved"), lt(streamPool.updatedAt, reservedCutoff)),
+        and(eq(streamPool.status, "in_use"), lt(streamPool.updatedAt, inUseCutoff))
+      )
+    );
+
+  if (stuckStreams.length === 0) return 0;
+
+  for (const stream of stuckStreams) {
+    await db
+      .update(streamPool)
+      .set({
+        status: "available",
+        reservedMatchId: null,
+        updatedAt: new Date()
+      })
+      .where(eq(streamPool.id, stream.id));
+  }
+
+  return stuckStreams.length;
+}
+
 /**
  * Get current stream pool status with counts by state
  * @returns Pool status with counts for each state
  */
 export async function getPoolStatus(): Promise<PoolStatus> {
+  await recoverStuckStreams();
   const streams = await db.select().from(streamPool);
 
   const status: PoolStatus = {

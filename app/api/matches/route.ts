@@ -15,6 +15,7 @@ import {
   matchCreationLimiter,
   pinAttemptLimiter
 } from "@/lib/match-rate-limit";
+import { sanitizeText } from "@/lib/sanitize";
 
 export const dynamic = "force-dynamic";
 
@@ -148,8 +149,15 @@ export async function POST(request: Request) {
       pinAttemptLimiter.clearAttempts(ip);
     }
 
-    // Strip create_pin before passing to createMatch
+    // Strip create_pin and sanitize text fields before passing to createMatch
     const { create_pin, ...matchParams } = validated;
+    matchParams.opponentName = sanitizeText(matchParams.opponentName);
+    if (matchParams.tournamentName) {
+      matchParams.tournamentName = sanitizeText(matchParams.tournamentName);
+    }
+    if (matchParams.courtLabel) {
+      matchParams.courtLabel = sanitizeText(matchParams.courtLabel);
+    }
 
     // Record match creation attempt for rate limiting
     matchCreationLimiter.recordAttempt(ip);

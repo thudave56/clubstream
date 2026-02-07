@@ -33,7 +33,8 @@ export const createMatchSchema = z.object({
   scheduledStart: z.string().datetime().optional(),
   courtLabel: z.string().max(20).optional(),
   privacyStatus: z.enum(["public", "unlisted"]).optional(),
-  idempotencyKey: z.string().max(100).optional()
+  idempotencyKey: z.string().max(100).optional(),
+  recordLocally: z.boolean().optional()
 });
 
 export type CreateMatchParams = z.infer<typeof createMatchSchema>;
@@ -186,13 +187,25 @@ export async function transitionBroadcast(
  * @param matchTitle - Title for the stream
  * @returns larix:// URL with base64-encoded configuration
  */
+export interface LarixUrlOptions {
+  overlayUrl?: string;
+  platform?: "ios" | "android";
+  recordLocally?: boolean;
+}
+
 export function generateLarixUrl(
   ingestAddress: string,
   streamName: string,
   matchTitle: string,
   overlayUrl?: string,
-  platform?: "ios" | "android"
+  platform?: "ios" | "android",
+  options?: LarixUrlOptions
 ): string {
+  // Merge legacy positional args with options object
+  const resolvedOverlayUrl = options?.overlayUrl ?? overlayUrl;
+  const resolvedPlatform = options?.platform ?? platform;
+  const recordLocally = options?.recordLocally ?? false;
+
   // Combine RTMP URL and stream key
   const rtmpUrl = `${ingestAddress}/${streamName}`;
 
@@ -206,19 +219,23 @@ export function generateLarixUrl(
   params.append("enc[vid][bitrate]", "2500"); // Kbps
   params.append("enc[aud][bitrate]", "128");  // Kbps
 
-  if (overlayUrl) {
+  if (recordLocally) {
+    params.append("enc[record][enabled]", "on");
+  }
+
+  if (resolvedOverlayUrl) {
     params.append("widget[][name]", "Scoreboard");
-    params.append("widget[][url]", overlayUrl);
+    params.append("widget[][url]", resolvedOverlayUrl);
     params.append("widget[][mode]", "s");
     params.append("widget[][overwrite]", "on");
     params.append("widget[][active]", "on");
     params.append("widget[][x]", "0.05");
     params.append("widget[][y]", "0.05");
 
-    if (platform === "ios") {
+    if (resolvedPlatform === "ios") {
       params.append("widget[][w]", "0.9");
       params.append("widget[][h]", "0.2");
-    } else if (platform === "android") {
+    } else if (resolvedPlatform === "android") {
       params.append("widget[][w]", "900");
       params.append("widget[][h]", "180");
     }
@@ -260,7 +277,10 @@ export async function createMatch(
       const larixUrl = generateLarixUrl(
         streamData.ingestAddress,
         streamData.streamName,
-        `${existingMatch.opponentName} Match`
+        `${existingMatch.opponentName} Match`,
+        undefined,
+        undefined,
+        { recordLocally: validated.recordLocally }
       );
 
       return { match: existingMatch, larixUrl };
@@ -367,7 +387,9 @@ export async function createMatch(
       reservedStream.ingestAddress,
       reservedStream.streamName,
       `${team[0].displayName} vs ${validated.opponentName}`,
-      overlayUrl
+      overlayUrl,
+      undefined,
+      { recordLocally: validated.recordLocally }
     );
 
     // Log to audit

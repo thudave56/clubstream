@@ -10,6 +10,7 @@ import {
   type MatchRules,
   type SetScore
 } from "@/lib/scoring";
+import { scoringLimiter } from "@/lib/match-rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -103,6 +104,23 @@ export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const ip =
+    request.headers.get("x-forwarded-for") ||
+    request.headers.get("x-real-ip") ||
+    "unknown";
+
+  if (scoringLimiter.isRateLimited(ip)) {
+    return Response.json(
+      {
+        error: "Too many requests",
+        retryAfter: scoringLimiter.getResetTime(ip)
+      },
+      { status: 429 }
+    );
+  }
+
+  scoringLimiter.recordAttempt(ip);
+
   const matchId = params.id;
   const body = await request.json();
   const parsed = actionSchema.safeParse(body);
