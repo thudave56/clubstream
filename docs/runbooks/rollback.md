@@ -20,6 +20,14 @@
 3. Roll back/redeploy that version.
 4. Monitor until service reports healthy.
 
+## Staging Rollback Drill
+1. Open `Rollback Staging` workflow in GitHub Actions.
+2. Run `workflow_dispatch` with `ref=<known-good-sha>`.
+3. Confirm workflow completes:
+   - `verify-release-gate`
+   - reusable deploy path (`trigger`, `poll`, `smoke`)
+4. Record workflow URL in rehearsal evidence (see `docs/runbooks/rehearsal.md`).
+
 ## Post-Rollback Verification
 1. Confirm `GET /api/health` is healthy.
 2. Confirm key pages (`/`, `/admin`) load successfully.

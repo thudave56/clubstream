@@ -1,0 +1,82 @@
+name: Rollback Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref (branch, tag, or full SHA) to roll back staging to"
+        required: true
+        default: "main"
+        type: string
+
+permissions:
+  contents: read
+  checks: read
+
+concurrency:
+  group: rollback-staging
+  cancel-in-progress: false
+
+jobs:
+  resolve-ref:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - name: Checkout target ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+
+      - name: Resolve commit SHA
+        id: resolve
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  verify-release-gate:
+    runs-on: ubuntu-latest
+    needs: resolve-ref
+    permissions:
+      checks: read
+      contents: read
+    steps:
+      - name: Verify release-gate check passed for target SHA
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = '${{ needs.resolve-ref.outputs.sha }}';
+            const { owner, repo } = context.repo;
+            const { data } = await github.rest.checks.listForRef({
+              owner,
+              repo,
+              ref: sha,
+              per_page: 100
+            });
+
+            const gateRuns = data.check_runs
+              .filter((run) => run.name === 'release-gate')
+              .sort((a, b) => new Date(b.started_at || 0) - new Date(a.started_at || 0));
+
+            if (gateRuns.length === 0) {
+              core.setFailed(`No release-gate check found for ${sha}. Run CI on this ref before rollback.`);
+              return;
+            }
+
+            const latest = gateRuns[0];
+            core.info(`release-gate status=${latest.status}, conclusion=${latest.conclusion}`);
+            if (latest.status !== 'completed' || latest.conclusion !== 'success') {
+              core.setFailed(`release-gate is not successful for ${sha}.`);
+            }
+
+  rollback:
+    needs:
+      - resolve-ref
+      - verify-release-gate
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: staging
+      git_ref: ${{ needs.resolve-ref.outputs.sha }}
+      app_base_url: ${{ vars.STAGING_APP_BASE_URL }}
+      migration_command: 'echo "Rollback drill: skipping migrations."'
+      run_discord_notify: true
+    secrets: inherit

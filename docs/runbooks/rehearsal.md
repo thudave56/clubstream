@@ -23,7 +23,8 @@
    - `ref=<target-sha>`
    - `backup_checkpoint=<snapshot-id>`
 5. Validate production smoke checks and Discord success notification.
-6. Run rollback drill (safe simulation or actual rollback in a controlled window) and confirm recovery steps from `docs/runbooks/rollback.md`.
+6. Trigger `Rollback Staging` workflow and roll back to a known-good SHA.
+7. Confirm rollback smoke checks pass and recovery steps in `docs/runbooks/rollback.md` are valid.
 
 ## Evidence Capture
 - Use this command after the drill:
