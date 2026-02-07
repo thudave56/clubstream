@@ -7,6 +7,7 @@
 - PR is merged and `CI` is green (`test`, `build`, `e2e`, `regression`, `release-gate`).
 - Required GitHub environment secrets exist for target environment.
 - Render service and database are healthy.
+- Initial environment setup is completed per `docs/runbooks/platform-setup.md`.
 - For production deploys, migration maintenance window (if needed) is communicated.
 
 ## Staging Deployment
