@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface MatchInfo {
   id: string;
   teamDisplayName: string;
   opponentName: string;
   tournamentName: string | null;
+  status: string;
 }
 
 interface MatchRules {
@@ -41,14 +42,19 @@ interface ScoreResponse {
 interface OverlayClientProps {
   matchId: string;
   transparent?: boolean;
+  autoLive?: boolean;
 }
+
+const PRE_LIVE_STATUSES = ["draft", "scheduled", "ready"];
 
 export default function OverlayClient({
   matchId,
-  transparent = false
+  transparent = false,
+  autoLive = false
 }: OverlayClientProps) {
   const [data, setData] = useState<ScoreResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const autoLiveTriggered = useRef(false);
 
   useEffect(() => {
     const original = document.body.style.backgroundColor;
@@ -85,6 +91,41 @@ export default function OverlayClient({
     const interval = setInterval(fetchScore, 2000);
     return () => clearInterval(interval);
   }, [fetchScore]);
+
+  // When running inside Larix (autoLive=true), poll the auto-live endpoint
+  // to transition the broadcast to live once YouTube detects the RTMP stream.
+  // This avoids relying on the browser tab (which iOS suspends in background).
+  // Polling stops permanently once the match goes live.
+  useEffect(() => {
+    if (!autoLive || autoLiveTriggered.current) return;
+
+    const matchStatus = data?.match?.status;
+    if (!matchStatus) return;
+
+    // Already live or finished — nothing to do
+    if (!PRE_LIVE_STATUSES.includes(matchStatus)) {
+      autoLiveTriggered.current = true;
+      return;
+    }
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/matches/${matchId}/auto-live`, {
+          method: "POST"
+        });
+        const result = await res.json();
+        if (result.status === "live" || result.status === "already_live") {
+          autoLiveTriggered.current = true;
+        }
+      } catch {
+        // Silently retry on network errors
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
+  }, [autoLive, matchId, data?.match?.status]);
 
   const currentSet = useMemo(() => {
     if (!data) return null;

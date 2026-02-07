@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  getBroadcastStatus,
   getYouTubeStreamStatus,
   transitionBroadcast
 } from "@/lib/match-creation";
@@ -47,12 +48,32 @@ export async function POST(
 
     const match = matchRecords[0];
 
-    // Already live or ended - nothing to do
-    if (match.status === "live") {
-      return NextResponse.json({ status: "already_live" });
-    }
+    // Match ended or canceled — stop polling
     if (["ended", "canceled"].includes(match.status)) {
       return NextResponse.json({ status: match.status });
+    }
+
+    // Already live — return current stream health so callers can monitor
+    if (match.status === "live") {
+      if (match.streamPoolId) {
+        const liveStreamRecords = await db
+          .select()
+          .from(streamPool)
+          .where(eq(streamPool.id, match.streamPoolId))
+          .limit(1);
+
+        if (liveStreamRecords.length > 0) {
+          const ytHealth = await getYouTubeStreamStatus(
+            liveStreamRecords[0].youtubeStreamId
+          );
+          return NextResponse.json({
+            status: "already_live",
+            streamStatus: ytHealth.status,
+            healthStatus: ytHealth.healthStatus
+          });
+        }
+      }
+      return NextResponse.json({ status: "already_live" });
     }
 
     // Need broadcast and stream to check
@@ -90,16 +111,37 @@ export async function POST(
       });
     }
 
-    // Stream is active - transition broadcast to live
+    // Stream is active - check broadcast status and transition to live
+    const broadcastStatus = await getBroadcastStatus(match.youtubeBroadcastId);
+
     try {
-      await transitionBroadcast(match.youtubeBroadcastId, "testing");
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      await transitionBroadcast(match.youtubeBroadcastId, "live");
+      if (broadcastStatus === "ready" || broadcastStatus === "created") {
+        await transitionBroadcast(match.youtubeBroadcastId, "testing");
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+
+      // Re-check in case testing transition just happened or was already done
+      const currentStatus = broadcastStatus === "ready" || broadcastStatus === "created"
+        ? "testing"
+        : broadcastStatus;
+
+      if (currentStatus === "testing" || currentStatus === "testStarting") {
+        await transitionBroadcast(match.youtubeBroadcastId, "live");
+      } else if (currentStatus === "live" || currentStatus === "liveStarting") {
+        // Already live — fall through to update DB
+      } else {
+        return NextResponse.json({
+          status: "waiting",
+          streamStatus: ytStatus.status,
+          broadcastStatus: currentStatus
+        });
+      }
     } catch (error) {
       console.error("Auto-live transition failed:", error);
       return NextResponse.json({
         status: "transition_failed",
-        streamStatus: ytStatus.status
+        streamStatus: ytStatus.status,
+        broadcastStatus
       });
     }
 

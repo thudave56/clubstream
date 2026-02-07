@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getYouTubeClient } from "@/lib/youtube-auth";
 import { buildYouTubeDescription, buildYouTubeTitle } from "@/lib/youtube-title";
 import { validateRules } from "@/lib/scoring";
+import { sanitizeText } from "@/lib/sanitize";
 
 export const dynamic = "force-dynamic";
 
@@ -113,14 +114,14 @@ export async function PATCH(
 
   const normalizedTitle =
     typeof youtubeTitleOverride === "string"
-      ? youtubeTitleOverride.trim().length > 0
-        ? youtubeTitleOverride.trim()
+      ? sanitizeText(youtubeTitleOverride).length > 0
+        ? sanitizeText(youtubeTitleOverride)
         : null
       : undefined;
   const normalizedDescription =
     typeof youtubeDescriptionOverride === "string"
-      ? youtubeDescriptionOverride.trim().length > 0
-        ? youtubeDescriptionOverride.trim()
+      ? sanitizeText(youtubeDescriptionOverride).length > 0
+        ? sanitizeText(youtubeDescriptionOverride)
         : null
       : undefined;
 

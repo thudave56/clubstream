@@ -42,6 +42,7 @@ jobs:
           npm run db:seed
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/clubstream_test
+          ENCRYPTION_KEY: 0a273d28974c80e4cc96700c766ec8c1dcd1a6b643e0e824f1d86d4efc8f9832
 
       - name: Run unit tests
         run: npm run test
@@ -114,6 +115,7 @@ jobs:
           npm run db:seed
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/clubstream_test
+          ENCRYPTION_KEY: 0a273d28974c80e4cc96700c766ec8c1dcd1a6b643e0e824f1d86d4efc8f9832
 
       - name: Run E2E tests
         run: npm run test:e2e

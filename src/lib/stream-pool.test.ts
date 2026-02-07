@@ -3,7 +3,8 @@ import {
   initializeStreamPool,
   getPoolStatus,
   reserveStream,
-  releaseStream
+  releaseStream,
+  recoverStuckStreams
 } from "./stream-pool";
 import { getYouTubeClient } from "./youtube-auth";
 import { db } from "@/db";
@@ -192,13 +193,17 @@ describe("stream-pool", () => {
         { id: "5", status: "stuck" }
       ];
 
-      const mockSelect = vi.fn().mockReturnValue({
-        from: vi.fn().mockResolvedValue(mockStreams)
-      });
-
-      (db.select as any).mockReturnValue({
-        from: mockSelect().from
-      });
+      // First call: recoverStuckStreams selects with .from().where()
+      // Second call: getPoolStatus selects with .from()
+      (db.select as any)
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([])
+          })
+        })
+        .mockReturnValueOnce({
+          from: vi.fn().mockResolvedValue(mockStreams)
+        });
 
       const result = await getPoolStatus();
 
@@ -213,13 +218,15 @@ describe("stream-pool", () => {
     });
 
     it("should return zero counts for empty pool", async () => {
-      const mockSelect = vi.fn().mockReturnValue({
-        from: vi.fn().mockResolvedValue([])
-      });
-
-      (db.select as any).mockReturnValue({
-        from: mockSelect().from
-      });
+      (db.select as any)
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([])
+          })
+        })
+        .mockReturnValueOnce({
+          from: vi.fn().mockResolvedValue([])
+        });
 
       const result = await getPoolStatus();
 
@@ -311,6 +318,87 @@ describe("stream-pool", () => {
       await releaseStream("youtube-stream-1");
 
       expect(mockUpdate).toHaveBeenCalled();
+      const setCall = mockUpdate().set;
+      expect(setCall).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "available",
+          reservedMatchId: null
+        })
+      );
+    });
+  });
+
+  describe("recoverStuckStreams", () => {
+    it("should return 0 when no stuck streams exist", async () => {
+      const mockSelect = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([])
+        })
+      });
+
+      (db.select as any).mockReturnValue({
+        from: mockSelect().from
+      });
+
+      const count = await recoverStuckStreams();
+      expect(count).toBe(0);
+    });
+
+    it("should recover reserved streams older than 6 hours", async () => {
+      const stuckStreams = [
+        { id: "stuck-1" },
+        { id: "stuck-2" }
+      ];
+
+      const mockSelect = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(stuckStreams)
+        })
+      });
+
+      (db.select as any).mockReturnValue({
+        from: mockSelect().from
+      });
+
+      const mockUpdate = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      (db.update as any).mockReturnValue({
+        set: mockUpdate().set
+      });
+
+      const count = await recoverStuckStreams();
+      expect(count).toBe(2);
+    });
+
+    it("should set recovered streams to available with null reservedMatchId", async () => {
+      const stuckStreams = [{ id: "stuck-1" }];
+
+      const mockSelect = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(stuckStreams)
+        })
+      });
+
+      (db.select as any).mockReturnValue({
+        from: mockSelect().from
+      });
+
+      const mockUpdate = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      (db.update as any).mockReturnValue({
+        set: mockUpdate().set
+      });
+
+      await recoverStuckStreams();
+
       const setCall = mockUpdate().set;
       expect(setCall).toHaveBeenCalledWith(
         expect.objectContaining({

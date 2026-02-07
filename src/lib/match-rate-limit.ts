@@ -11,3 +11,9 @@ export const pinAttemptLimiter = createRateLimiter({
   maxAttempts: 5,
   windowMs: 15 * 60 * 1000
 });
+
+/** Rate limiter for scoring actions: 60 per minute per IP */
+export const scoringLimiter = createRateLimiter({
+  maxAttempts: 60,
+  windowMs: 60 * 1000
+});

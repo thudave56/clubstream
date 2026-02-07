@@ -1,4 +1,4 @@
-import { and, gte, lt, or, isNull } from "drizzle-orm";
+import { and, desc, gte, lt, or, isNull } from "drizzle-orm";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -15,6 +15,7 @@ import {
   matchCreationLimiter,
   pinAttemptLimiter
 } from "@/lib/match-rate-limit";
+import { sanitizeText } from "@/lib/sanitize";
 
 export const dynamic = "force-dynamic";
 
@@ -50,12 +51,13 @@ export async function GET(request: Request) {
           // Fall back to createdAt when scheduledStart is null
           and(isNull(matches.scheduledStart), gte(matches.createdAt, start), lt(matches.createdAt, end))
         )
-      );
+      )
+      .orderBy(desc(matches.createdAt));
 
     return Response.json({ matches: rows });
   }
 
-  const rows = await db.select().from(matches);
+  const rows = await db.select().from(matches).orderBy(desc(matches.createdAt));
   return Response.json({ matches: rows });
 }
 
@@ -148,8 +150,15 @@ export async function POST(request: Request) {
       pinAttemptLimiter.clearAttempts(ip);
     }
 
-    // Strip create_pin before passing to createMatch
+    // Strip create_pin and sanitize text fields before passing to createMatch
     const { create_pin, ...matchParams } = validated;
+    matchParams.opponentName = sanitizeText(matchParams.opponentName);
+    if (matchParams.tournamentName) {
+      matchParams.tournamentName = sanitizeText(matchParams.tournamentName);
+    }
+    if (matchParams.courtLabel) {
+      matchParams.courtLabel = sanitizeText(matchParams.courtLabel);
+    }
 
     // Record match creation attempt for rate limiting
     matchCreationLimiter.recordAttempt(ip);
