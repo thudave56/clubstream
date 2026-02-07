@@ -9,8 +9,8 @@ for (const key of REQUIRED) {
   }
 }
 
-if (!hasApi && !hasHook) {
-  errors.push("Missing Render deployment configuration: provide either (RENDER_API_KEY and RENDER_SERVICE_ID) or RENDER_DEPLOY_HOOK_URL");
+if (!hasApi) {
+  errors.push("Missing Render API credentials: RENDER_API_KEY and RENDER_SERVICE_ID are required for deploy polling.");
 }
 
 if (process.env.RUN_DISCORD_NOTIFY === "true" && !process.env.DISCORD_WEBHOOK_URL) {

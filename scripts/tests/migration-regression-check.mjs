@@ -26,7 +26,6 @@ function fail(message, details) {
   const error = new Error(`Migration regression check failed: ${message}`);
   if (details) {
     error.details = details;
-    console.error(details);
   }
   throw error;
 }
@@ -122,7 +121,7 @@ async function main() {
 
 main().catch((error) => {
   console.error(error instanceof Error ? error.message : String(error));
-  if (error.details) {
+  if (error && typeof error === "object" && "details" in error && error.details) {
     console.error(error.details);
   }
   process.exit(1);
