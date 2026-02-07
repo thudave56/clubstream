@@ -21,9 +21,17 @@ test.describe("Regression: scoring + overlay realtime updates", () => {
     const teamId = teamsPayload.teams?.[0]?.id as string | undefined;
     expect(teamId).toBeTruthy();
 
-    // Create a match (YouTube calls are mocked in CI/dev when Google creds are absent).
-    const createRes = await request.post("http://localhost:3000/api/matches", {
-      headers: { "x-test-client-ip": "203.0.113.44" },
+    // Create a match as admin so this test is isolated from create-PIN toggles in other specs.
+    const loginRes = await request.post("http://localhost:3000/api/admin/test-login", {
+      data: { pin: "1234" }
+    });
+    expect(loginRes.ok()).toBeTruthy();
+    const loginPayload = await loginRes.json();
+    const sessionToken = loginPayload.sessionToken as string | undefined;
+    expect(sessionToken).toBeTruthy();
+
+    const createRes = await request.post("http://localhost:3000/api/admin/matches", {
+      headers: { Cookie: `admin_session=${sessionToken}` },
       data: {
         teamId,
         opponentName: "Regression Opponent",
