@@ -9,14 +9,13 @@ projects:
             plan: starter
             region: oregon
             branch: main
-            buildCommand: npm ci && npm run build
+            # Ensure devDependencies (typescript) are installed so Next can apply tsconfig path aliases (e.g. "@/db").
+            buildCommand: npm ci --include=dev && npm run build
             preDeployCommand: npm run db:wait && npm run db:migrate:staging && npm run db:seed
             startCommand: npm run start
             healthCheckPath: /api/health
             autoDeployTrigger: checksPass
             envVars:
-              - key: NODE_ENV
-                value: production
               - key: DATABASE_URL
                 fromDatabase:
                   name: clubstream-staging-db
@@ -39,14 +38,13 @@ projects:
             plan: starter
             region: oregon
             branch: main
-            buildCommand: npm ci && npm run build
+            # Ensure devDependencies (typescript) are installed so Next can apply tsconfig path aliases (e.g. "@/db").
+            buildCommand: npm ci --include=dev && npm run build
             preDeployCommand: npm run db:wait && npm run db:migrate:prod
             startCommand: npm run start
             healthCheckPath: /api/health
             autoDeployTrigger: off
             envVars:
-              - key: NODE_ENV
-                value: production
               - key: DATABASE_URL
                 fromDatabase:
                   name: clubstream-production-db
