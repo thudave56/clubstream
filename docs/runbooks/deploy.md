@@ -45,7 +45,7 @@
 - Sentry project shows no new untriaged critical errors after deploy (if Sentry is configured).
 - Scheduled uptime checks (`Uptime Check` workflow) are configured with `STAGING_APP_BASE_URL` and `PRODUCTION_APP_BASE_URL`.
 - `Governance Check` workflow is green on latest run.
-- `Notify Validation Ready` workflow posts to Discord after successful PR CI runs.
+- `CI` workflow `notify-validation-ready` job posts to Discord after successful PR checks.
 
 ## Failure Path
 - If migration fails, follow `docs/runbooks/migration-failure.md`.
