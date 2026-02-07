@@ -5,13 +5,24 @@ import {
   deleteOAuthState
 } from "./oauth";
 import { db } from "@/db";
-import { oauthStates } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { vi } from "vitest";
+
+// Mock the database module so tests don't require a running PostgreSQL
+vi.mock("@/db", () => ({
+  db: {
+    insert: vi.fn(),
+    select: vi.fn(),
+    delete: vi.fn()
+  }
+}));
+
+vi.mock("@/db/schema", () => ({
+  oauthStates: { state: "state" }
+}));
 
 describe("oauth", () => {
-  // Clean up before each test
-  beforeEach(async () => {
-    await db.delete(oauthStates);
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
   describe("generateOAuthState", () => {
@@ -34,31 +45,38 @@ describe("oauth", () => {
     it("should store state in database with 10-minute expiry", async () => {
       const state = generateOAuthState();
 
+      const mockValues = vi.fn().mockResolvedValue(undefined);
+      (db.insert as any).mockReturnValue({ values: mockValues });
+
       await storeOAuthState(state);
 
-      const result = await db
-        .select()
-        .from(oauthStates)
-        .where(eq(oauthStates.state, state));
-
-      expect(result).toHaveLength(1);
-      expect(result[0].state).toBe(state);
-
-      // Check expiry is approximately 10 minutes from now (within 5 seconds)
-      const expectedExpiry = new Date(Date.now() + 10 * 60 * 1000);
-      const actualExpiry = result[0].expiresAt;
-      const timeDiff = Math.abs(
-        actualExpiry.getTime() - expectedExpiry.getTime()
+      expect(db.insert).toHaveBeenCalled();
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          state,
+          expiresAt: expect.any(Date)
+        })
       );
 
-      expect(timeDiff).toBeLessThan(5000); // Within 5 seconds
+      // Verify the expiry is approximately 10 minutes from now
+      const passedDate = mockValues.mock.calls[0][0].expiresAt as Date;
+      const expectedExpiry = new Date(Date.now() + 10 * 60 * 1000);
+      const timeDiff = Math.abs(passedDate.getTime() - expectedExpiry.getTime());
+      expect(timeDiff).toBeLessThan(5000);
     });
   });
 
   describe("verifyOAuthState", () => {
     it("should return true for valid unexpired state", async () => {
       const state = generateOAuthState();
-      await storeOAuthState(state);
+      const futureExpiry = new Date(Date.now() + 5 * 60 * 1000);
+
+      const mockLimit = vi.fn().mockResolvedValue([
+        { state, expiresAt: futureExpiry, createdAt: new Date() }
+      ]);
+      const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      (db.select as any).mockReturnValue({ from: mockFrom });
 
       const isValid = await verifyOAuthState(state);
 
@@ -68,6 +86,11 @@ describe("oauth", () => {
     it("should return false for non-existent state", async () => {
       const state = generateOAuthState();
 
+      const mockLimit = vi.fn().mockResolvedValue([]);
+      const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      (db.select as any).mockReturnValue({ from: mockFrom });
+
       const isValid = await verifyOAuthState(state);
 
       expect(isValid).toBe(false);
@@ -75,52 +98,44 @@ describe("oauth", () => {
 
     it("should return false and delete expired state", async () => {
       const state = generateOAuthState();
+      const pastExpiry = new Date(Date.now() - 1000);
 
-      // Insert expired state directly
-      await db.insert(oauthStates).values({
-        state,
-        expiresAt: new Date(Date.now() - 1000) // Expired 1 second ago
-      });
+      const mockLimit = vi.fn().mockResolvedValue([
+        { state, expiresAt: pastExpiry, createdAt: new Date() }
+      ]);
+      const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      (db.select as any).mockReturnValue({ from: mockFrom });
+
+      // Mock delete for cleanup of expired state
+      const mockDeleteWhere = vi.fn().mockResolvedValue(undefined);
+      (db.delete as any).mockReturnValue({ where: mockDeleteWhere });
 
       const isValid = await verifyOAuthState(state);
 
       expect(isValid).toBe(false);
-
-      // Verify state was deleted
-      const result = await db
-        .select()
-        .from(oauthStates)
-        .where(eq(oauthStates.state, state));
-
-      expect(result).toHaveLength(0);
+      expect(db.delete).toHaveBeenCalled();
     });
   });
 
   describe("deleteOAuthState", () => {
     it("should delete state from database", async () => {
       const state = generateOAuthState();
-      await storeOAuthState(state);
 
-      // Verify it exists
-      let result = await db
-        .select()
-        .from(oauthStates)
-        .where(eq(oauthStates.state, state));
-      expect(result).toHaveLength(1);
+      const mockDeleteWhere = vi.fn().mockResolvedValue(undefined);
+      (db.delete as any).mockReturnValue({ where: mockDeleteWhere });
 
-      // Delete it
       await deleteOAuthState(state);
 
-      // Verify it's gone
-      result = await db
-        .select()
-        .from(oauthStates)
-        .where(eq(oauthStates.state, state));
-      expect(result).toHaveLength(0);
+      expect(db.delete).toHaveBeenCalled();
+      expect(mockDeleteWhere).toHaveBeenCalled();
     });
 
     it("should not throw error if state doesn't exist", async () => {
       const state = generateOAuthState();
+
+      const mockDeleteWhere = vi.fn().mockResolvedValue(undefined);
+      (db.delete as any).mockReturnValue({ where: mockDeleteWhere });
 
       await expect(deleteOAuthState(state)).resolves.not.toThrow();
     });

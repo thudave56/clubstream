@@ -70,6 +70,12 @@ export default function ScoreClient({ matchId }: ScoreClientProps) {
     }
   }, [matchId]);
 
+  // TODO: Replace polling with Server-Sent Events (SSE) or WebSockets for
+  // real-time score updates. Polling every 5s adds latency and unnecessary
+  // server load — especially during tournaments with many concurrent matches.
+  // An SSE endpoint at /api/matches/:id/score/stream would push updates
+  // instantly when scores change, and the polling here can serve as a fallback
+  // for reconnection. Also stop polling when matchComplete is true.
   useEffect(() => {
     fetchScore();
     const interval = setInterval(fetchScore, 5000);

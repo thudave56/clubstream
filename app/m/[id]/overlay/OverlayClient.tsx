@@ -75,6 +75,11 @@ export default function OverlayClient({
     }
   }, [matchId]);
 
+  // TODO: Replace polling with Server-Sent Events (SSE) or WebSockets.
+  // The overlay polls every 2s which is the most latency-sensitive consumer
+  // (viewers see stale scores on the stream). An SSE connection would deliver
+  // sub-second updates. Also stop polling when matchComplete is true, since
+  // the overlay continues fetching indefinitely after the match ends.
   useEffect(() => {
     fetchScore();
     const interval = setInterval(fetchScore, 2000);
