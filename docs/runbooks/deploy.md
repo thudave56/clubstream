@@ -38,6 +38,7 @@
 - Home and admin pages load.
 - No new 5xx spikes in logs.
 - Discord success message posted.
+- Scheduled uptime checks (`Uptime Check` workflow) are configured with `STAGING_APP_BASE_URL` and `PRODUCTION_APP_BASE_URL`.
 
 ## Failure Path
 - If migration fails, follow `docs/runbooks/migration-failure.md`.

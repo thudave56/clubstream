@@ -1,0 +1,55 @@
+name: Uptime Check
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [staging, production]
+    env:
+      TARGET: ${{ matrix.target }}
+      BASE_URL: ${{ matrix.target == 'staging' && vars.STAGING_APP_BASE_URL || vars.PRODUCTION_APP_BASE_URL }}
+      TIMEOUT_SECONDS: "20"
+    steps:
+      - name: Validate base URL
+        run: |
+          if [ -z "$BASE_URL" ]; then
+            echo "::warning::${TARGET} base URL is not configured. Set STAGING_APP_BASE_URL / PRODUCTION_APP_BASE_URL."
+            exit 0
+          fi
+          echo "BASE_URL=$BASE_URL"
+
+      - name: Check /api/health
+        run: |
+          if [ -z "$BASE_URL" ]; then
+            echo "Skipping health check for ${TARGET} because BASE_URL is empty."
+            exit 0
+          fi
+
+          HEALTH_URL="${BASE_URL%/}/api/health"
+          echo "Checking ${TARGET} health endpoint: ${HEALTH_URL}"
+
+          HTTP_CODE=$(curl --silent --show-error --location \
+            --max-time "$TIMEOUT_SECONDS" \
+            --output health-response.json \
+            --write-out "%{http_code}" \
+            "$HEALTH_URL")
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "::error::${TARGET} health endpoint returned HTTP ${HTTP_CODE}"
+            cat health-response.json || true
+            exit 1
+          fi
+
+          node -e "const fs=require('node:fs'); const body=JSON.parse(fs.readFileSync('health-response.json','utf8')); if (body?.ok !== true) { console.error('Health payload missing ok=true:', body); process.exit(1); } console.log('Health payload OK');"
+
+          echo "${TARGET} uptime check passed."
