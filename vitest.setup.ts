@@ -1,6 +1,7 @@
 // Vitest setup file
 // Load environment variables for tests
 import { config } from 'dotenv';
+import '@testing-library/jest-dom/vitest';
 
 // Load from .env file (use actual local database for tests)
 config({ path: '.env' });

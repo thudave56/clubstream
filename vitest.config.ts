@@ -4,9 +4,9 @@ import path from 'path';
 export default defineConfig({
   test: {
     globals: true,
-    environment: 'node',
+    environment: 'jsdom', // Changed from 'node' to 'jsdom' for React component testing
     setupFiles: ['./vitest.setup.ts'],
-    include: ['src/**/*.{test,spec}.{js,ts,jsx,tsx}'],
+    include: ['src/**/*.{test,spec}.{js,ts,jsx,tsx}', 'app/**/*.{test,spec}.{js,ts,jsx,tsx}'], // Added app directory
     exclude: ['node_modules', '.next', 'drizzle', 'tests/e2e/**'],
     coverage: {
       provider: 'v8',

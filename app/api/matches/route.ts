@@ -1,9 +1,19 @@
-import { and, desc, gte, lt, or, isNull } from "drizzle-orm";
-import { eq } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  max,
+  or,
+  type SQL
+} from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { matches, adminSettings } from "@/db/schema";
+import { matches, adminSettings, scores, teams } from "@/db/schema";
 import {
   createMatch,
   createMatchSchema,
@@ -38,27 +48,113 @@ export async function GET(request: Request) {
     return Response.json({ error: "Invalid date format." }, { status: 400 });
   }
 
+  // Helper function to get matches with score data
+  const getMatchesWithScores = async (whereClause?: SQL<unknown>) => {
+    // First get all matches
+    const matchQuery = db
+      .select({
+        id: matches.id,
+        teamId: matches.teamId,
+        opponentName: matches.opponentName,
+        tournamentId: matches.tournamentId,
+        tournamentName: matches.tournamentName,
+        scheduledStart: matches.scheduledStart,
+        courtLabel: matches.courtLabel,
+        status: matches.status,
+        youtubeBroadcastId: matches.youtubeBroadcastId,
+        youtubeWatchUrl: matches.youtubeWatchUrl,
+        youtubeTitleOverride: matches.youtubeTitleOverride,
+        youtubeDescriptionOverride: matches.youtubeDescriptionOverride,
+        streamPoolId: matches.streamPoolId,
+        idempotencyKey: matches.idempotencyKey,
+        rulesBestOf: matches.rulesBestOf,
+        rulesPointsToWin: matches.rulesPointsToWin,
+        rulesFinalSetPoints: matches.rulesFinalSetPoints,
+        rulesWinBy: matches.rulesWinBy,
+        createdAt: matches.createdAt,
+        updatedAt: matches.updatedAt,
+        teamDisplayName: teams.displayName
+      })
+      .from(matches)
+      .innerJoin(teams, eq(matches.teamId, teams.id));
+
+    const filteredMatchQuery = whereClause
+      ? matchQuery.where(whereClause)
+      : matchQuery;
+    const matchRows = await filteredMatchQuery.orderBy(desc(matches.createdAt));
+
+    // Get current set scores for all matches
+    const matchIds = matchRows.map(m => m.id);
+    if (matchIds.length === 0) {
+      return [];
+    }
+
+    // Subquery to get max set number per match
+    const maxSetSubquery = db
+      .select({
+        matchId: scores.matchId,
+        maxSet: max(scores.setNumber).as("maxSet")
+      })
+      .from(scores)
+      .where(inArray(scores.matchId, matchIds))
+      .groupBy(scores.matchId)
+      .as("maxSets");
+
+    // Get current set scores
+    const currentScores = await db
+      .select({
+        matchId: scores.matchId,
+        setNumber: scores.setNumber,
+        homeScore: scores.homeScore,
+        awayScore: scores.awayScore
+      })
+      .from(scores)
+      .innerJoin(
+        maxSetSubquery,
+        and(
+          eq(scores.matchId, maxSetSubquery.matchId),
+          eq(scores.setNumber, maxSetSubquery.maxSet)
+        )
+      )
+      .where(inArray(scores.matchId, matchIds));
+
+    // Build a map of matchId -> current scores
+    const scoresMap = new Map(
+      currentScores.map(s => [
+        s.matchId,
+        {
+          currentSetNumber: s.setNumber,
+          currentSetHomeScore: s.homeScore,
+          currentSetAwayScore: s.awayScore
+        }
+      ])
+    );
+
+    // Merge matches with scores
+    return matchRows.map(match => ({
+      ...match,
+      ...(scoresMap.get(match.id) || {})
+    }));
+  };
+
   if (parseResult.data.date) {
     const start = new Date(`${parseResult.data.date}T00:00:00.000Z`);
     const end = new Date(`${parseResult.data.date}T23:59:59.999Z`);
-    const rows = await db
-      .select()
-      .from(matches)
-      .where(
-        or(
-          // Match by scheduledStart when set
-          and(gte(matches.scheduledStart, start), lt(matches.scheduledStart, end)),
-          // Fall back to createdAt when scheduledStart is null
-          and(isNull(matches.scheduledStart), gte(matches.createdAt, start), lt(matches.createdAt, end))
-        )
-      )
-      .orderBy(desc(matches.createdAt));
 
-    return Response.json({ matches: rows });
+    const matchesWithScores = await getMatchesWithScores(
+      or(
+        // Match by scheduledStart when set
+        and(gte(matches.scheduledStart, start), lt(matches.scheduledStart, end)),
+        // Fall back to createdAt when scheduledStart is null
+        and(isNull(matches.scheduledStart), gte(matches.createdAt, start), lt(matches.createdAt, end))
+      )
+    );
+
+    return Response.json({ matches: matchesWithScores });
   }
 
-  const rows = await db.select().from(matches).orderBy(desc(matches.createdAt));
-  return Response.json({ matches: rows });
+  const matchesWithScores = await getMatchesWithScores();
+  return Response.json({ matches: matchesWithScores });
 }
 
 /** Extended schema for public match creation (adds optional create_pin) */
