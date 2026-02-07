@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import MatchManagement from "./MatchManagement";
 import TeamManagement from "./TeamManagement";
@@ -29,6 +29,15 @@ interface AuditEntry {
   createdAt: string;
 }
 
+interface StreamRecord {
+  id: string;
+  youtubeStreamId: string;
+  status: string;
+  reservedMatchId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -49,6 +58,15 @@ export default function AdminDashboard() {
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState("");
+  const [auditActionFilter, setAuditActionFilter] = useState<string>("all");
+  const [auditTextFilter, setAuditTextFilter] = useState("");
+  const [auditCopiedId, setAuditCopiedId] = useState<string | null>(null);
+
+  const [streamToolsOpen, setStreamToolsOpen] = useState(false);
+  const [streamsLoading, setStreamsLoading] = useState(false);
+  const [stuckStreams, setStuckStreams] = useState<StreamRecord[]>([]);
+  const [disabledStreams, setDisabledStreams] = useState<StreamRecord[]>([]);
+  const [streamActionId, setStreamActionId] = useState<string | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -148,6 +166,115 @@ export default function AdminDashboard() {
       setPoolStatus(data);
     } catch (err) {
       console.error("Pool status error:", err);
+    }
+  };
+
+  const loadStreamTools = async () => {
+    setStreamsLoading(true);
+
+    try {
+      const [stuckRes, disabledRes] = await Promise.all([
+        fetch("/api/admin/stream-pool/streams?status=stuck"),
+        fetch("/api/admin/stream-pool/streams?status=disabled")
+      ]);
+
+      if (stuckRes.ok) {
+        const data = await stuckRes.json();
+        setStuckStreams(data.streams || []);
+      }
+
+      if (disabledRes.ok) {
+        const data = await disabledRes.json();
+        setDisabledStreams(data.streams || []);
+      }
+    } catch {
+      // Ignore; this tooling is optional.
+    } finally {
+      setStreamsLoading(false);
+    }
+  };
+
+  const handleStreamAction = async (
+    streamId: string,
+    action: "reset" | "disable" | "enable"
+  ) => {
+    setStreamActionId(streamId);
+    setPoolMessage(null);
+
+    try {
+      const res = await fetch(
+        `/api/admin/stream-pool/streams/${streamId}/${action}`,
+        { method: "POST" }
+      );
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Action failed");
+      }
+
+      setPoolMessage({
+        type: "success",
+        text:
+          action === "reset"
+            ? "Stream recovered to available"
+            : action === "disable"
+            ? "Stream disabled"
+            : "Stream enabled"
+      });
+
+      await Promise.all([loadPoolStatus(), loadStreamTools(), loadAuditLog()]);
+    } catch (err) {
+      setPoolMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Action failed"
+      });
+    } finally {
+      setStreamActionId(null);
+    }
+  };
+
+  const auditActions = useMemo(() => {
+    const actions = new Set<string>();
+    for (const entry of auditEntries) actions.add(entry.action);
+    return Array.from(actions).sort((a, b) => a.localeCompare(b));
+  }, [auditEntries]);
+
+  const filteredAuditEntries = useMemo(() => {
+    const q = auditTextFilter.trim().toLowerCase();
+    return auditEntries.filter((entry) => {
+      if (auditActionFilter !== "all" && entry.action !== auditActionFilter) {
+        return false;
+      }
+      if (!q) return true;
+
+      const detailText =
+        entry.detail && typeof entry.detail === "object"
+          ? JSON.stringify(entry.detail)
+          : entry.detail
+          ? String(entry.detail)
+          : "";
+
+      const haystack = `${entry.action} ${detailText}`.toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [auditActionFilter, auditEntries, auditTextFilter]);
+
+  const copyAuditDetail = async (entry: AuditEntry) => {
+    const detailText =
+      entry.detail && typeof entry.detail === "object"
+        ? JSON.stringify(entry.detail, null, 2)
+        : entry.detail
+        ? String(entry.detail)
+        : "";
+
+    if (!detailText) return;
+
+    try {
+      await navigator.clipboard.writeText(detailText);
+      setAuditCopiedId(entry.id);
+      setTimeout(() => setAuditCopiedId(null), 2000);
+    } catch {
+      // Ignore clipboard failures.
     }
   };
 
@@ -368,8 +495,83 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* OAuth Status */}
+        {/* Start-of-day checklist */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
+          <h2 className="text-xl font-semibold">Start-of-Day Checklist</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Quick health signals to reduce surprises during the first match.
+          </p>
+
+          <div className="mt-4 space-y-3">
+            <div className="flex items-start justify-between gap-4 rounded-lg border border-slate-800 p-4">
+              <div>
+                <div className="font-medium">YouTube connected</div>
+                <div className="mt-1 text-sm text-slate-400">
+                  Required to create streams and manage the pool.
+                </div>
+              </div>
+              <a
+                href="#oauth"
+                className={`shrink-0 rounded-full px-3 py-1 text-sm font-medium ${
+                  settings.oauthStatus === "connected"
+                    ? "bg-green-900/40 text-green-400"
+                    : "bg-amber-900/30 text-amber-300"
+                }`}
+              >
+                {settings.oauthStatus === "connected" ? "OK" : "Needs action"}
+              </a>
+            </div>
+
+            <div className="flex items-start justify-between gap-4 rounded-lg border border-slate-800 p-4">
+              <div>
+                <div className="font-medium">Stream pool ready</div>
+                <div className="mt-1 text-sm text-slate-400">
+                  You want at least 1 available stream and 0 stuck streams.
+                </div>
+              </div>
+              <a
+                href="#pool"
+                className={`shrink-0 rounded-full px-3 py-1 text-sm font-medium ${
+                  settings.oauthStatus !== "connected"
+                    ? "bg-slate-800 text-slate-400"
+                    : poolStatus && poolStatus.available > 0 && poolStatus.stuck === 0
+                    ? "bg-green-900/40 text-green-400"
+                    : "bg-amber-900/30 text-amber-300"
+                }`}
+              >
+                {settings.oauthStatus !== "connected"
+                  ? "Connect first"
+                  : poolStatus && poolStatus.available > 0 && poolStatus.stuck === 0
+                  ? "OK"
+                  : "Needs action"}
+              </a>
+            </div>
+
+            <div className="flex items-start justify-between gap-4 rounded-lg border border-slate-800 p-4">
+              <div>
+                <div className="font-medium">Match creation PIN (if required)</div>
+                <div className="mt-1 text-sm text-slate-400">
+                  If PIN is required, it must be configured or match creation will fail.
+                </div>
+              </div>
+              <a
+                href="#security"
+                className={`shrink-0 rounded-full px-3 py-1 text-sm font-medium ${
+                  settings.requireCreatePin && !settings.hasCreatePin
+                    ? "bg-amber-900/30 text-amber-300"
+                    : "bg-green-900/40 text-green-400"
+                }`}
+              >
+                {settings.requireCreatePin && !settings.hasCreatePin
+                  ? "Needs action"
+                  : "OK"}
+              </a>
+            </div>
+          </div>
+        </section>
+
+        {/* OAuth Status */}
+        <section id="oauth" className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
           <h2 className="text-xl font-semibold">YouTube OAuth Status</h2>
 
           {oauthMessage && (
@@ -436,7 +638,7 @@ export default function AdminDashboard() {
         </section>
 
         {/* Stream Pool Status */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
+        <section id="pool" className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
           <h2 className="text-xl font-semibold">Stream Pool Status</h2>
 
           {settings.oauthStatus !== "connected" && (
@@ -494,7 +696,30 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              <div>
+              <div className="space-y-3">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={loadPoolStatus}
+                    disabled={poolLoading}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    Refresh Status
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const next = !streamToolsOpen;
+                      setStreamToolsOpen(next);
+                      if (next) await loadStreamTools();
+                    }}
+                    disabled={streamsLoading}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {streamToolsOpen ? "Hide Recovery Tools" : "Open Recovery Tools"}
+                  </button>
+                </div>
+
                 <button
                   onClick={handleInitializePool}
                   disabled={poolLoading}
@@ -504,9 +729,115 @@ export default function AdminDashboard() {
                 </button>
 
                 {poolStatus && poolStatus.total > 0 && (
-                  <p className="mt-2 text-xs text-slate-400">
+                  <p className="text-xs text-slate-400">
                     Pool already has {poolStatus.total} stream{poolStatus.total !== 1 ? "s" : ""}. This will add more.
                   </p>
+                )}
+
+                {streamToolsOpen && (
+                  <section className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="font-medium">Recovery Tools</div>
+                        <div className="mt-1 text-sm text-slate-400">
+                          Reset stuck streams back to available or disable streams that should not be used.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={loadStreamTools}
+                        disabled={streamsLoading}
+                        className="shrink-0 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                      >
+                        {streamsLoading ? "Refreshing..." : "Refresh"}
+                      </button>
+                    </div>
+
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                      <div className="rounded-lg border border-slate-800 p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium text-slate-200">Stuck Streams</div>
+                          <div className="text-xs text-slate-500">{stuckStreams.length}</div>
+                        </div>
+                        {stuckStreams.length === 0 ? (
+                          <div className="mt-2 text-sm text-slate-400">None</div>
+                        ) : (
+                          <div className="mt-3 space-y-2">
+                            {stuckStreams.map((s) => (
+                              <div key={s.id} className="rounded-lg border border-slate-800 bg-slate-900/30 p-3">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="truncate text-xs text-slate-500">
+                                      {s.youtubeStreamId}
+                                    </div>
+                                    <div className="mt-1 text-xs text-slate-400">
+                                      Reserved match: {s.reservedMatchId || "none"}
+                                    </div>
+                                    <div className="mt-1 text-xs text-slate-500">
+                                      Updated: {new Date(s.updatedAt).toLocaleString()}
+                                    </div>
+                                  </div>
+                                  <div className="flex shrink-0 flex-col gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStreamAction(s.id, "reset")}
+                                      disabled={streamActionId === s.id}
+                                      className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                                    >
+                                      {streamActionId === s.id ? "Working..." : "Reset"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStreamAction(s.id, "disable")}
+                                      disabled={streamActionId === s.id}
+                                      className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                                    >
+                                      Disable
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="rounded-lg border border-slate-800 p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium text-slate-200">Disabled Streams</div>
+                          <div className="text-xs text-slate-500">{disabledStreams.length}</div>
+                        </div>
+                        {disabledStreams.length === 0 ? (
+                          <div className="mt-2 text-sm text-slate-400">None</div>
+                        ) : (
+                          <div className="mt-3 space-y-2">
+                            {disabledStreams.map((s) => (
+                              <div key={s.id} className="rounded-lg border border-slate-800 bg-slate-900/30 p-3">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="truncate text-xs text-slate-500">
+                                      {s.youtubeStreamId}
+                                    </div>
+                                    <div className="mt-1 text-xs text-slate-500">
+                                      Updated: {new Date(s.updatedAt).toLocaleString()}
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStreamAction(s.id, "enable")}
+                                    disabled={streamActionId === s.id}
+                                    className="shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                                  >
+                                    {streamActionId === s.id ? "Working..." : "Enable"}
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </section>
                 )}
               </div>
             </div>
@@ -514,7 +845,7 @@ export default function AdminDashboard() {
         </section>
 
         {/* Security Settings */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
+        <section id="security" className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
           <h2 className="text-xl font-semibold">Security Settings</h2>
           <div className="mt-4 space-y-4">
             <div className="flex items-center justify-between rounded-lg border border-slate-800 p-4">
@@ -545,9 +876,9 @@ export default function AdminDashboard() {
                   <div className="text-sm text-slate-400">Admin PIN</div>
                   <div className="mt-1 text-lg font-semibold">
                     {settings.hasAdminPin ? (
-                      <span className="text-green-400">✓ Configured</span>
+                      <span className="text-green-400">Configured</span>
                     ) : (
-                      <span className="text-red-400">✗ Not Set</span>
+                      <span className="text-red-400">Not set</span>
                     )}
                   </div>
                 </div>
@@ -555,9 +886,9 @@ export default function AdminDashboard() {
                   <div className="text-sm text-slate-400">Create PIN</div>
                   <div className="mt-1 text-lg font-semibold">
                     {settings.hasCreatePin ? (
-                      <span className="text-green-400">✓ Configured</span>
+                      <span className="text-green-400">Configured</span>
                     ) : (
-                      <span className="text-slate-500">Not Set</span>
+                      <span className="text-slate-500">Not set</span>
                     )}
                   </div>
                 </div>
@@ -577,6 +908,45 @@ export default function AdminDashboard() {
         <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
           <h2 className="text-xl font-semibold">Recent Activity</h2>
           <div className="mt-4">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <label className="text-xs text-slate-400">
+                  Action
+                  <select
+                    value={auditActionFilter}
+                    onChange={(e) => setAuditActionFilter(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 sm:w-56"
+                  >
+                    <option value="all">All actions</option>
+                    {auditActions.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="text-xs text-slate-400">
+                  Search
+                  <input
+                    value={auditTextFilter}
+                    onChange={(e) => setAuditTextFilter(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 sm:w-64"
+                    placeholder="matchId, stream_pool, oauth..."
+                  />
+                </label>
+              </div>
+
+              <button
+                type="button"
+                onClick={loadAuditLog}
+                disabled={auditLoading}
+                className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-50"
+              >
+                {auditLoading ? "Refreshing..." : "Refresh activity"}
+              </button>
+            </div>
+
             {auditLoading && (
               <div className="rounded-lg border border-slate-800 p-4 text-sm text-slate-400">
                 Loading recent activity...
@@ -592,16 +962,23 @@ export default function AdminDashboard() {
                 No recent activity yet.
               </div>
             )}
-            {!auditLoading && !auditError && auditEntries.length > 0 && (
+            {!auditLoading && !auditError && auditEntries.length > 0 && filteredAuditEntries.length === 0 && (
+              <div className="rounded-lg border border-slate-800 p-4 text-sm text-slate-400">
+                No entries match your filters.
+              </div>
+            )}
+            {!auditLoading && !auditError && filteredAuditEntries.length > 0 && (
               <div className="divide-y divide-slate-800 rounded-lg border border-slate-800">
-                {auditEntries.map((entry) => {
+                {filteredAuditEntries.map((entry) => {
                   const label = entry.action
                     .replace(/_/g, " ")
                     .replace(/\b\w/g, (m) => m.toUpperCase());
-                  const detail =
+                  const detailText =
                     entry.detail && typeof entry.detail === "object"
-                      ? JSON.stringify(entry.detail)
-                      : entry.detail ? String(entry.detail) : "";
+                      ? JSON.stringify(entry.detail, null, 2)
+                      : entry.detail
+                      ? String(entry.detail)
+                      : "";
 
                   return (
                     <div key={entry.id} className="flex flex-col gap-2 p-4 md:flex-row md:items-start md:justify-between">
@@ -609,10 +986,22 @@ export default function AdminDashboard() {
                         <div className="text-sm font-medium text-slate-200">
                           {label}
                         </div>
-                        {detail && (
-                          <div className="mt-1 text-xs text-slate-400">
-                            {detail}
-                          </div>
+                        {detailText && (
+                          <details className="mt-2 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                            <summary className="cursor-pointer text-xs font-medium text-slate-300">
+                              Details
+                            </summary>
+                            <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap text-xs text-slate-400">
+                              {detailText}
+                            </pre>
+                            <button
+                              type="button"
+                              onClick={() => copyAuditDetail(entry)}
+                              className="mt-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800"
+                            >
+                              {auditCopiedId === entry.id ? "Copied" : "Copy detail"}
+                            </button>
+                          </details>
                         )}
                       </div>
                       <div className="text-xs text-slate-500">
