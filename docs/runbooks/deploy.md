@@ -23,11 +23,15 @@
 
 ## Production Deployment
 1. Confirm target SHA has successful `release-gate`.
-2. Open `Deploy Production` workflow and run `workflow_dispatch`.
-3. Enter `ref` (SHA or tag) and start run.
-4. Approve production environment protection if prompted.
-5. Verify reusable deploy steps complete:
+2. Capture a database backup/snapshot identifier immediately before migration (for example, managed backup ID in Render Postgres).
+3. Open `Deploy Production` workflow and run `workflow_dispatch`.
+4. Enter:
+   - `ref` (SHA or tag)
+   - `backup_checkpoint` (the backup/snapshot identifier from step 2)
+5. Approve production environment protection if prompted.
+6. Verify reusable deploy steps complete:
    - `deploy:validate-env`
+   - `deploy:verify-backup`
    - migration command (`db:migrate:prod`)
    - Render trigger/poll
    - smoke checks

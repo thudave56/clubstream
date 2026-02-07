@@ -17,6 +17,10 @@ on:
         required: false
         type: string
         default: "npm run db:migrate:staging"
+      backup_checkpoint:
+        required: false
+        type: string
+        default: ""
       render_poll_interval_seconds:
         required: false
         type: number
@@ -64,6 +68,7 @@ jobs:
       RUN_DISCORD_NOTIFY: ${{ inputs.run_discord_notify }}
       RENDER_POLL_INTERVAL_SECONDS: ${{ inputs.render_poll_interval_seconds }}
       RENDER_POLL_TIMEOUT_SECONDS: ${{ inputs.render_poll_timeout_seconds }}
+      DEPLOY_BACKUP_CHECKPOINT: ${{ inputs.backup_checkpoint }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
       ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
@@ -96,6 +101,9 @@ jobs:
       - name: Notify deploy started
         if: ${{ inputs.run_discord_notify }}
         run: npm run deploy:notify -- --status started --environment "${{ inputs.environment }}" --sha "${{ inputs.git_ref }}"
+
+      - name: Verify backup checkpoint
+        run: npm run deploy:verify-backup
 
       - name: Run database migrations
         run: ${{ inputs.migration_command }}

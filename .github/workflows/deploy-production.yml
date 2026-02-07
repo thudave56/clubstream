@@ -8,6 +8,10 @@ on:
         required: true
         default: "main"
         type: string
+      backup_checkpoint:
+        description: "Database backup/snapshot identifier captured before migration"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -78,5 +82,6 @@ jobs:
       git_ref: ${{ needs.resolve-ref.outputs.sha }}
       app_base_url: ${{ vars.PRODUCTION_APP_BASE_URL }}
       migration_command: npm run db:migrate:prod
+      backup_checkpoint: ${{ inputs.backup_checkpoint }}
       run_discord_notify: true
     secrets: inherit
