@@ -14,8 +14,8 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: clubstream_test
+          POSTGRES_HOST_AUTH_METHOD: trust
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -44,13 +44,13 @@ jobs:
           npm run db:migrate:ci
           npm run db:seed
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/clubstream_test
+          DATABASE_URL: postgresql://postgres@localhost:5432/clubstream_test
           ENCRYPTION_KEY: ${{ env.ENCRYPTION_KEY }}
 
       - name: Run unit tests
         run: npm run test
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/clubstream_test
+          DATABASE_URL: postgresql://postgres@localhost:5432/clubstream_test
           APP_BASE_URL: http://localhost:3000
           ENCRYPTION_KEY: ${{ env.ENCRYPTION_KEY }}
 
@@ -87,8 +87,8 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: clubstream_test
+          POSTGRES_HOST_AUTH_METHOD: trust
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -120,13 +120,13 @@ jobs:
           npm run db:migrate:ci
           npm run db:seed
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/clubstream_test
+          DATABASE_URL: postgresql://postgres@localhost:5432/clubstream_test
           ENCRYPTION_KEY: ${{ env.ENCRYPTION_KEY }}
 
       - name: Run E2E tests
         run: npm run test:e2e
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/clubstream_test
+          DATABASE_URL: postgresql://postgres@localhost:5432/clubstream_test
           APP_BASE_URL: http://localhost:3000
           ENCRYPTION_KEY: ${{ env.ENCRYPTION_KEY }}
 
@@ -147,8 +147,8 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: clubstream_test
+          POSTGRES_HOST_AUTH_METHOD: trust
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -180,13 +180,13 @@ jobs:
           npm run db:migrate:ci
           npm run db:seed
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/clubstream_test
+          DATABASE_URL: postgresql://postgres@localhost:5432/clubstream_test
           ENCRYPTION_KEY: ${{ env.ENCRYPTION_KEY }}
 
       - name: Run regression suite
         run: npm run test:regression
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/clubstream_test
+          DATABASE_URL: postgresql://postgres@localhost:5432/clubstream_test
           APP_BASE_URL: http://localhost:3000
           ENCRYPTION_KEY: ${{ env.ENCRYPTION_KEY }}
 
