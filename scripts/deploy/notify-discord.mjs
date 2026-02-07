@@ -12,11 +12,13 @@ const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
 const status = readArg("--status", process.env.DEPLOY_STATUS ?? "unknown");
 const environment = readArg("--environment", process.env.DEPLOY_ENVIRONMENT ?? "unknown");
 const sha = readArg("--sha", process.env.DEPLOY_SHA ?? process.env.GITHUB_SHA ?? "unknown");
-const actor = process.env.GITHUB_ACTOR ?? "unknown";
-const runUrl =
+const actor = readArg("--actor", process.env.GITHUB_ACTOR ?? "unknown");
+const runUrl = readArg(
+  "--run-url",
   process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
     ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
-    : "unavailable";
+    : "unavailable"
+);
 
 if (!webhookUrl) {
   console.log("[deploy:notify] DISCORD_WEBHOOK_URL not set, skipping notification.");
