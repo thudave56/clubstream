@@ -95,6 +95,16 @@ jobs:
         if: ${{ inputs.app_base_url != '' }}
         run: echo "APP_BASE_URL=${{ inputs.app_base_url }}" >> "$GITHUB_ENV"
 
+      - name: Enforce SSL for DATABASE_URL
+        if: ${{ env.DATABASE_URL != '' }}
+        shell: bash
+        run: |
+          if [[ "$DATABASE_URL" != *"sslmode="* && "$DATABASE_URL" != *"ssl="* ]]; then
+            sep="?"
+            if [[ "$DATABASE_URL" == *"?"* ]]; then sep="&"; fi
+            echo "DATABASE_URL=${DATABASE_URL}${sep}sslmode=require" >> "$GITHUB_ENV"
+          fi
+
       - name: Validate deploy environment
         run: npm run deploy:validate-env
 

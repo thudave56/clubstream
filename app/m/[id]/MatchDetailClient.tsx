@@ -6,8 +6,6 @@ import { MatchStreamStatus } from "../../components/MatchStreamStatus";
 interface MatchDetailClientProps {
   matchId: string;
   status: string;
-  youtubeWatchUrl: string | null;
-  isPreLive: boolean;
   tournamentName: string | null;
   defaultTitle: string;
   defaultDescription: string;
@@ -24,8 +22,6 @@ interface MatchDetailClientProps {
 export default function MatchDetailClient({
   matchId,
   status,
-  youtubeWatchUrl,
-  isPreLive,
   tournamentName,
   defaultTitle,
   defaultDescription,
@@ -33,8 +29,6 @@ export default function MatchDetailClient({
   youtubeDescriptionOverride,
   rules
 }: MatchDetailClientProps) {
-  const [copied, setCopied] = useState(false);
-  const [linkCopied, setLinkCopied] = useState(false);
   const [currentStatus, setCurrentStatus] = useState(status);
   const [titleOverride, setTitleOverride] = useState(youtubeTitleOverride);
   const [descriptionOverride, setDescriptionOverride] = useState(
@@ -49,28 +43,6 @@ export default function MatchDetailClient({
     type: "success" | "error";
     text: string;
   } | null>(null);
-
-  const handleCopy = async () => {
-    if (!youtubeWatchUrl) return;
-    try {
-      await navigator.clipboard.writeText(youtubeWatchUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Ignore
-    }
-  };
-
-  const handleCopyMatchLink = async () => {
-    const link = `${window.location.origin}/m/${matchId}`;
-    try {
-      await navigator.clipboard.writeText(link);
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    } catch {
-      // Ignore
-    }
-  };
 
   const handleEndMatch = async () => {
     if (!confirm("Are you sure you want to end this match?")) return;
@@ -164,7 +136,7 @@ export default function MatchDetailClient({
 
   return (
     <div className="space-y-8">
-      {/* Stream status polling — active during pre-live and live phases */}
+      {/* Stream status polling - active during pre-live and live phases */}
       {currentStatus !== "ended" && currentStatus !== "canceled" && (
         <MatchStreamStatus
           matchId={matchId}
@@ -188,44 +160,6 @@ export default function MatchDetailClient({
           Match ended
         </div>
       )}
-
-      <section className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-        <div>
-          <h2 className="text-lg font-semibold">Match Links</h2>
-          <p className="text-sm text-slate-400">
-            Share this match link for scoring and overlay access.
-          </p>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <a
-            href={`/m/${matchId}/score`}
-            className="flex items-center justify-center rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700"
-          >
-            Open Scoring
-          </a>
-          <a
-            href={`/m/${matchId}/overlay`}
-            className="flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-medium text-slate-300 hover:bg-slate-800"
-          >
-            Open Overlay
-          </a>
-          <button
-            onClick={handleCopyMatchLink}
-            className="flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-medium text-slate-300 hover:bg-slate-800"
-          >
-            {linkCopied ? "Match Link Copied" : "Copy Match Link"}
-          </button>
-          {youtubeWatchUrl && (
-            <button
-              onClick={handleCopy}
-              className="flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-medium text-slate-300 hover:bg-slate-800"
-            >
-              {copied ? "Copied!" : "Copy YouTube Watch Link"}
-            </button>
-          )}
-        </div>
-      </section>
 
       <section className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
         <div className="space-y-1">

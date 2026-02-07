@@ -112,7 +112,7 @@ test.describe("Enhanced Match Cards", () => {
     await expect(scheduledCard.getByText("Court 1")).toBeVisible();
     await expect(scheduledCard.getByText(/Starts in/)).toBeVisible();
     await expect(
-      scheduledCard.getByRole("link", { name: "Start Streaming" })
+      scheduledCard.getByRole("link", { name: "Open Larix" })
     ).toHaveAttribute("href", `/m/${scheduledMatchId}/stream`);
   });
 
@@ -127,8 +127,8 @@ test.describe("Enhanced Match Cards", () => {
       .first();
     await expect(liveCard.getByText("Live", { exact: true })).toBeVisible();
     await expect(liveCard.getByText("Set 2")).toBeVisible();
-    await expect(liveCard.getByText("15")).toBeVisible();
-    await expect(liveCard.getByText("12")).toBeVisible();
+    await expect(liveCard.getByText("15", { exact: true })).toBeVisible();
+    await expect(liveCard.getByText("12", { exact: true })).toBeVisible();
     await expect(
       liveCard.getByRole("link", { name: "Watch Live" })
     ).toHaveAttribute("href", "https://youtube.com/watch?v=live123");
@@ -139,8 +139,8 @@ test.describe("Enhanced Match Cards", () => {
       .filter({ hasText: "Rivals United" })
       .first();
     await expect(endedCard.getByText("Set 3")).toBeVisible();
-    await expect(endedCard.getByText("25")).toBeVisible();
-    await expect(endedCard.getByText("23")).toBeVisible();
+    await expect(endedCard.getByText("25", { exact: true })).toBeVisible();
+    await expect(endedCard.getByText("23", { exact: true })).toBeVisible();
     await expect(
       endedCard.getByRole("link", { name: "Watch Recording" })
     ).toHaveAttribute("href", "https://youtube.com/watch?v=ended123");

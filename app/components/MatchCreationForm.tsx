@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { MatchStreamStatus } from "./MatchStreamStatus";
+import MatchSharePanel from "./MatchSharePanel";
 
 interface Team {
   id: string;
@@ -29,7 +30,6 @@ interface CreatedMatch {
   youtubeWatchUrl: string | null;
   larixUrl: string;
   matchTitle: string;
-  matchLink: string;
 }
 
 export default function MatchCreationForm() {
@@ -47,7 +47,6 @@ export default function MatchCreationForm() {
     opponentName: ""
   });
   const [copied, setCopied] = useState(false);
-  const [matchLinkCopied, setMatchLinkCopied] = useState(false);
   const [tournamentSelection, setTournamentSelection] = useState("");
 
   useEffect(() => {
@@ -101,15 +100,13 @@ export default function MatchCreationForm() {
       // Find team name for display
       const team = teams.find((t) => t.id === formData.teamId);
       const matchTitle = `${team?.displayName || "Team"} vs ${formData.opponentName}`;
-      const matchLink = `${window.location.origin}/m/${data.match.id}`;
 
       setCreatedMatch({
         id: data.match.id,
         opponentName: formData.opponentName,
         youtubeWatchUrl: data.match.youtubeWatchUrl,
         larixUrl: data.larixUrl,
-        matchTitle,
-        matchLink
+        matchTitle
       });
 
       setMessage({ type: "success", text: "Match created successfully!" });
@@ -135,17 +132,6 @@ export default function MatchCreationForm() {
     }
   };
 
-  const handleCopyMatchLink = async () => {
-    if (!createdMatch?.matchLink) return;
-    try {
-      await navigator.clipboard.writeText(createdMatch.matchLink);
-      setMatchLinkCopied(true);
-      setTimeout(() => setMatchLinkCopied(false), 2000);
-    } catch {
-      // Fallback: ignore
-    }
-  };
-
   // Show success panel after match creation
   if (createdMatch) {
     return (
@@ -156,8 +142,27 @@ export default function MatchCreationForm() {
 
         <h2 className="text-lg font-semibold">{createdMatch.matchTitle}</h2>
 
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 space-y-4">
           <MatchStreamStatus matchId={createdMatch.id} />
+
+          <section className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+            <h3 className="text-sm font-semibold text-slate-200">Next steps</h3>
+            <ol className="mt-2 space-y-2 text-sm text-slate-300">
+              <li>
+                <span className="font-medium text-slate-200">Streamer phone:</span>{" "}
+                open the Larix launcher and press start.
+              </li>
+              <li>
+                <span className="font-medium text-slate-200">Scorer device:</span>{" "}
+                open scoring and keep it open during the match.
+              </li>
+              <li>
+                <span className="font-medium text-slate-200">Share:</span> copy the
+                match link for parents, and optionally share the overlay link if
+                you are using a scoreboard overlay.
+              </li>
+            </ol>
+          </section>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <a
@@ -165,6 +170,13 @@ export default function MatchCreationForm() {
               className="flex items-center justify-center rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700"
             >
               Open Larix Launcher
+            </a>
+
+            <a
+              href={`/m/${createdMatch.id}/score`}
+              className="flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-medium text-slate-300 hover:bg-slate-800"
+            >
+              Open Scoring
             </a>
 
             {createdMatch.youtubeWatchUrl && (
@@ -177,30 +189,13 @@ export default function MatchCreationForm() {
             )}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <a
-              href={`/m/${createdMatch.id}`}
-              className="text-sm text-blue-400 hover:underline"
-            >
-              Open match details
-            </a>
-            <button
-              onClick={handleCopyMatchLink}
-              className="text-left text-sm text-blue-400 hover:underline"
-            >
-              {matchLinkCopied ? "Match link copied" : "Copy match link"}
-            </button>
-            {createdMatch.youtubeWatchUrl && (
-              <a
-                href={createdMatch.youtubeWatchUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-blue-400 hover:underline"
-              >
-                Watch on YouTube
-              </a>
-            )}
-          </div>
+          <MatchSharePanel
+            matchId={createdMatch.id}
+            youtubeWatchUrl={createdMatch.youtubeWatchUrl}
+            includeLarixLauncher={false}
+            title="Links to Share"
+            description="Copy links for parents, your scorer, and (optionally) the overlay."
+          />
 
           <button
             onClick={() => setCreatedMatch(null)}

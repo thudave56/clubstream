@@ -151,7 +151,7 @@ export default function EnhancedMatchCard({ match, onEndMatch }: EnhancedMatchCa
             <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
               <path d="M4 4C2.89 4 2 4.89 2 6V14C2 15.11 2.89 16 4 16H16C17.11 16 18 15.11 18 14V6C18 4.89 17.11 4 16 4H4ZM13 10L8 7V13L13 10Z" />
             </svg>
-            Start Streaming
+            Open Larix
           </a>
         )}
 

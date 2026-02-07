@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { StatusBadge } from "../../components/StatusBadge";
 import MatchDetailClient from "./MatchDetailClient";
 import { buildYouTubeDescription, buildYouTubeTitle } from "@/lib/youtube-title";
-import MatchActions from "./MatchActions";
+import MatchSharePanel from "../../components/MatchSharePanel";
 
 interface MatchPageProps {
   params: { id: string };
@@ -90,8 +90,6 @@ export default async function MatchPage({ params }: MatchPageProps) {
       <MatchDetailClient
         matchId={match.id}
         status={match.status}
-        youtubeWatchUrl={match.youtubeWatchUrl}
-        isPreLive={isPreLive}
         tournamentName={tournamentName}
         defaultTitle={defaultTitle}
         defaultDescription={defaultDescription || ""}
@@ -128,15 +126,13 @@ export default async function MatchPage({ params }: MatchPageProps) {
         )}
       </div>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
-        <h2 className="text-lg font-semibold">Quick Links</h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Open scoring or overlay, or copy the match link to share with parents.
-        </p>
-        <div className="mt-4">
-          <MatchActions matchId={match.id} />
-        </div>
-      </section>
+      <MatchSharePanel
+        matchId={match.id}
+        youtubeWatchUrl={match.youtubeWatchUrl}
+        includeLarixLauncher={isPreLive}
+        title="Quick Links"
+        description="Open scoring/overlay, and copy share links for parents and staff."
+      />
 
     </main>
   );
