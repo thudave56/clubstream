@@ -22,6 +22,16 @@ async function simulateOAuthConnect(page: Page) {
 }
 
 /**
+ * Helper to disconnect OAuth
+ */
+async function disconnectOAuth(page: Page) {
+  const response = await page.request.post(
+    "http://localhost:3000/api/admin/oauth/disconnect"
+  );
+  expect(response.ok()).toBeTruthy();
+}
+
+/**
  * Helper to populate stream pool with test data
  */
 async function populateTestStreamPool(page: Page) {
@@ -36,6 +46,7 @@ test.describe("Match Creation", () => {
     page
   }) => {
     await loginAsAdmin(page);
+    await disconnectOAuth(page);
     await page.goto("/admin/dashboard");
     await page.waitForLoadState("networkidle");
 

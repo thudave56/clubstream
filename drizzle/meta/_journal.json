@@ -15,6 +15,13 @@
       "when": 1770324455391,
       "tag": "0001_damp_christian_walker",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1770464184804,
+      "tag": "0002_graceful_khan",
+      "breakpoints": true
     }
   ]
 }

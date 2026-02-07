@@ -1,0 +1,210 @@
+name: Rehearsal Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref (branch, tag, or full SHA) to rehearse"
+        required: true
+        default: "main"
+        type: string
+      rollback_ref:
+        description: "Known-good SHA/ref for staging rollback drill"
+        required: true
+        default: "main"
+        type: string
+      backup_checkpoint:
+        description: "Production backup/snapshot identifier captured before migration"
+        required: true
+        type: string
+      ci_run_url:
+        description: "CI workflow URL for the target SHA"
+        required: true
+        type: string
+      notes:
+        description: "Optional rehearsal notes"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  checks: read
+
+concurrency:
+  group: rehearsal-deploy
+  cancel-in-progress: false
+
+jobs:
+  resolve-target-ref:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - name: Checkout target ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+
+      - name: Resolve target SHA
+        id: resolve
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  verify-target-release-gate:
+    runs-on: ubuntu-latest
+    needs: resolve-target-ref
+    permissions:
+      checks: read
+      contents: read
+    steps:
+      - name: Verify release-gate check passed for target SHA
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = '${{ needs.resolve-target-ref.outputs.sha }}';
+            const { owner, repo } = context.repo;
+            const { data } = await github.rest.checks.listForRef({
+              owner,
+              repo,
+              ref: sha,
+              per_page: 100
+            });
+
+            const gateRuns = data.check_runs
+              .filter((run) => run.name === 'release-gate')
+              .sort((a, b) => new Date(b.started_at || 0) - new Date(a.started_at || 0));
+
+            if (gateRuns.length === 0) {
+              core.setFailed(`No release-gate check found for ${sha}. Run CI on this ref before rehearsal.`);
+              return;
+            }
+
+            const latest = gateRuns[0];
+            core.info(`release-gate status=${latest.status}, conclusion=${latest.conclusion}`);
+            if (latest.status !== 'completed' || latest.conclusion !== 'success') {
+              core.setFailed(`release-gate is not successful for ${sha}.`);
+            }
+
+  deploy-staging:
+    needs:
+      - resolve-target-ref
+      - verify-target-release-gate
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: staging
+      git_ref: ${{ needs.resolve-target-ref.outputs.sha }}
+      app_base_url: ${{ vars.STAGING_APP_BASE_URL }}
+      migration_command: npm run db:migrate:staging
+      run_discord_notify: true
+    secrets: inherit
+
+  deploy-production:
+    needs:
+      - resolve-target-ref
+      - verify-target-release-gate
+      - deploy-staging
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: production
+      git_ref: ${{ needs.resolve-target-ref.outputs.sha }}
+      app_base_url: ${{ vars.PRODUCTION_APP_BASE_URL }}
+      migration_command: npm run db:migrate:prod
+      backup_checkpoint: ${{ inputs.backup_checkpoint }}
+      run_discord_notify: true
+    secrets: inherit
+
+  resolve-rollback-ref:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - name: Checkout rollback ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.rollback_ref }}
+          fetch-depth: 1
+
+      - name: Resolve rollback SHA
+        id: resolve
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  verify-rollback-release-gate:
+    runs-on: ubuntu-latest
+    needs: resolve-rollback-ref
+    permissions:
+      checks: read
+      contents: read
+    steps:
+      - name: Verify release-gate check passed for rollback SHA
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = '${{ needs.resolve-rollback-ref.outputs.sha }}';
+            const { owner, repo } = context.repo;
+            const { data } = await github.rest.checks.listForRef({
+              owner,
+              repo,
+              ref: sha,
+              per_page: 100
+            });
+
+            const gateRuns = data.check_runs
+              .filter((run) => run.name === 'release-gate')
+              .sort((a, b) => new Date(b.started_at || 0) - new Date(a.started_at || 0));
+
+            if (gateRuns.length === 0) {
+              core.setFailed(`No release-gate check found for rollback ref ${sha}.`);
+              return;
+            }
+
+            const latest = gateRuns[0];
+            core.info(`rollback release-gate status=${latest.status}, conclusion=${latest.conclusion}`);
+            if (latest.status !== 'completed' || latest.conclusion !== 'success') {
+              core.setFailed(`release-gate is not successful for rollback ref ${sha}.`);
+            }
+
+  rollback-staging:
+    needs:
+      - deploy-production
+      - resolve-rollback-ref
+      - verify-rollback-release-gate
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: staging
+      git_ref: ${{ needs.resolve-rollback-ref.outputs.sha }}
+      app_base_url: ${{ vars.STAGING_APP_BASE_URL }}
+      migration_command: 'echo "Rehearsal rollback: skipping migrations."'
+      run_discord_notify: true
+    secrets: inherit
+
+  record-evidence:
+    runs-on: ubuntu-latest
+    needs:
+      - resolve-target-ref
+      - resolve-rollback-ref
+      - deploy-staging
+      - deploy-production
+      - rollback-staging
+    if: ${{ always() }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write rehearsal evidence
+        env:
+          REHEARSAL_COMMIT: ${{ needs.resolve-target-ref.outputs.sha }}
+          REHEARSAL_CI_RUN_URL: ${{ inputs.ci_run_url }}
+          REHEARSAL_STAGING_RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} (job: deploy-staging)"
+          REHEARSAL_PRODUCTION_RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} (job: deploy-production)"
+          REHEARSAL_ROLLBACK_RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} (job: rollback-staging)"
+          REHEARSAL_OUTCOME: ${{ needs.deploy-staging.result == 'success' && needs.deploy-production.result == 'success' && needs.rollback-staging.result == 'success' && 'Pass' || 'Fail' }}
+          REHEARSAL_NOTES: "Target=${{ needs.resolve-target-ref.outputs.sha }}, Rollback=${{ needs.resolve-rollback-ref.outputs.sha }}. ${{ inputs.notes }}"
+          REHEARSAL_OUTPUT_PATH: rehearsal-evidence.md
+        run: node scripts/deploy/write-rehearsal-evidence.mjs
+
+      - name: Upload rehearsal evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: rehearsal-evidence
+          path: rehearsal-evidence.md
+          retention-days: 30

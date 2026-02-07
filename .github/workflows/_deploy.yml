@@ -1,0 +1,129 @@
+name: _Deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      git_ref:
+        required: true
+        type: string
+      app_base_url:
+        required: false
+        type: string
+        default: ""
+      migration_command:
+        required: false
+        type: string
+        default: "npm run db:migrate:staging"
+      backup_checkpoint:
+        required: false
+        type: string
+        default: ""
+      render_poll_interval_seconds:
+        required: false
+        type: number
+        default: 10
+      render_poll_timeout_seconds:
+        required: false
+        type: number
+        default: 900
+      run_discord_notify:
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      DATABASE_URL:
+        required: false
+      APP_BASE_URL:
+        required: false
+      ENCRYPTION_KEY:
+        required: false
+      GOOGLE_CLIENT_ID:
+        required: false
+      GOOGLE_CLIENT_SECRET:
+        required: false
+      RENDER_API_KEY:
+        required: false
+      RENDER_SERVICE_ID:
+        required: false
+      DISCORD_WEBHOOK_URL:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    env:
+      DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      DEPLOY_SHA: ${{ inputs.git_ref }}
+      RUN_DISCORD_NOTIFY: ${{ inputs.run_discord_notify }}
+      RENDER_POLL_INTERVAL_SECONDS: ${{ inputs.render_poll_interval_seconds }}
+      RENDER_POLL_TIMEOUT_SECONDS: ${{ inputs.render_poll_timeout_seconds }}
+      DEPLOY_BACKUP_CHECKPOINT: ${{ inputs.backup_checkpoint }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+      ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve APP_BASE_URL override
+        if: ${{ inputs.app_base_url != '' }}
+        run: echo "APP_BASE_URL=${{ inputs.app_base_url }}" >> "$GITHUB_ENV"
+
+      - name: Validate deploy environment
+        run: npm run deploy:validate-env
+
+      - name: Notify deploy started
+        if: ${{ inputs.run_discord_notify }}
+        run: npm run deploy:notify -- --status started --environment "${{ inputs.environment }}" --sha "${{ inputs.git_ref }}"
+
+      - name: Verify backup checkpoint
+        run: npm run deploy:verify-backup
+
+      - name: Run database migrations
+        run: ${{ inputs.migration_command }}
+
+      - name: Trigger Render deploy
+        id: trigger
+        run: npm run deploy:trigger
+
+      - name: Poll Render deploy status
+        env:
+          RENDER_DEPLOY_ID: ${{ steps.trigger.outputs.deploy_id }}
+        run: npm run deploy:poll
+
+      - name: Run smoke checks
+        run: npm run deploy:smoke
+
+      - name: Notify deploy success
+        if: ${{ inputs.run_discord_notify }}
+        run: npm run deploy:notify -- --status success --environment "${{ inputs.environment }}" --sha "${{ inputs.git_ref }}"
+
+      - name: Notify deploy failure
+        if: ${{ failure() && inputs.run_discord_notify }}
+        run: npm run deploy:notify -- --status failure --environment "${{ inputs.environment }}" --sha "${{ inputs.git_ref }}"

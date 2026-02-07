@@ -1,0 +1,67 @@
+# Deployment Rehearsal Runbook
+
+## Owner
+- Primary: Release manager/on-call maintainer
+
+## Purpose
+- Rehearse staging-to-production deployment and rollback flow.
+- Capture evidence with workflow run URLs and outcome notes.
+
+## Preconditions
+- `CI` is green for the target SHA.
+- `staging` and `production` environments are configured.
+- A production DB backup/snapshot can be created on demand.
+
+## Drill Steps (Automated Workflow)
+1. Open `Rehearsal Deploy` workflow in GitHub Actions.
+2. Run `workflow_dispatch` with:
+   - `ref=<target-sha>`
+   - `rollback_ref=<known-good-sha>`
+   - `backup_checkpoint=<snapshot-id>`
+   - `ci_run_url=<release-gate run url>`
+3. Approve production environment protection when prompted.
+4. Confirm job sequence succeeds:
+   - `deploy-staging`
+   - `deploy-production`
+   - `rollback-staging`
+5. Download `rehearsal-evidence` artifact and store with release records.
+
+## Drill Steps (Manual Fallback)
+1. Choose target commit SHA and verify `release-gate` is successful.
+2. Trigger or confirm staging deploy for the same SHA.
+3. Execute smoke checks and verify:
+   - `/`
+   - `/admin`
+   - `/api/health`
+4. Trigger production deployment with:
+   - `ref=<target-sha>`
+   - `backup_checkpoint=<snapshot-id>`
+5. Validate production smoke checks and Discord success notification.
+6. Trigger `Rollback Staging` workflow and roll back to a known-good SHA.
+7. Confirm rollback smoke checks pass and recovery steps in `docs/runbooks/rollback.md` are valid.
+
+## Evidence Capture
+- Use this command after the drill:
+  - `npm run deploy:record-rehearsal`
+- Required environment variables:
+  - `REHEARSAL_CI_RUN_URL`
+  - `REHEARSAL_STAGING_RUN_URL`
+  - `REHEARSAL_OUTCOME`
+- Optional environment variables:
+  - `REHEARSAL_DATE` (default: UTC date)
+  - `REHEARSAL_COMMIT` (default: `GITHUB_SHA`)
+  - `REHEARSAL_PRODUCTION_RUN_URL`
+  - `REHEARSAL_ROLLBACK_RUN_URL`
+  - `REHEARSAL_NOTES`
+  - `REHEARSAL_OUTPUT_PATH` (default: `docs/rehearsals/<date>.md`)
+
+## Example
+```powershell
+$env:REHEARSAL_CI_RUN_URL = "https://github.com/<org>/<repo>/actions/runs/123"
+$env:REHEARSAL_STAGING_RUN_URL = "https://github.com/<org>/<repo>/actions/runs/124"
+$env:REHEARSAL_PRODUCTION_RUN_URL = "https://github.com/<org>/<repo>/actions/runs/125"
+$env:REHEARSAL_ROLLBACK_RUN_URL = "https://github.com/<org>/<repo>/actions/runs/126"
+$env:REHEARSAL_OUTCOME = "Pass"
+$env:REHEARSAL_NOTES = "Rollback drill completed in 12 minutes."
+npm run deploy:record-rehearsal
+```
