@@ -15,14 +15,15 @@ async function requestJson(url, options = {}, isHookEndpoint = false) {
     try {
       json = JSON.parse(text);
     } catch (parseError) {
-      // Only swallow parse errors for successful hook endpoint responses
-      if (!isHookEndpoint || !response.ok) {
-        // For API endpoints or failed requests, include raw body in error
-        if (!response.ok) {
-          throw new Error(`Request failed ${response.status}: ${text}`);
-        }
-        // For successful API responses that aren't JSON, this is unexpected
-        throw new Error(`Unexpected non-JSON response from ${url}: ${text.substring(0, 100)}`);
+      // Handle failed requests first
+      if (!response.ok) {
+        throw new Error(`Request failed ${response.status}: ${text}`);
+      }
+      // For successful responses, only allow non-JSON for hook endpoints
+      if (!isHookEndpoint) {
+        // API responses should always be JSON
+        const preview = text.length > 100 ? text.slice(0, 100) + '...' : text;
+        throw new Error(`Unexpected non-JSON response from ${url}: ${preview}`);
       }
       // Hook endpoints may return empty/non-JSON on success - allow it
     }
