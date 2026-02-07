@@ -219,6 +219,11 @@ export default function MatchCreationForm() {
       <p className="mt-1 text-sm text-slate-400">
         Fill in the details to set up the YouTube broadcast and Larix streaming link.
       </p>
+      {requirePin && (
+        <div className="mt-4 rounded-lg border border-amber-900 bg-amber-900/20 p-3 text-sm text-amber-300">
+          Match creation is protected. Ask your admin for the creation PIN.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div>
