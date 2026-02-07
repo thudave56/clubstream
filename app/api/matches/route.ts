@@ -1,4 +1,4 @@
-import { and, gte, lt, or, isNull } from "drizzle-orm";
+import { and, desc, gte, lt, or, isNull } from "drizzle-orm";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -51,12 +51,13 @@ export async function GET(request: Request) {
           // Fall back to createdAt when scheduledStart is null
           and(isNull(matches.scheduledStart), gte(matches.createdAt, start), lt(matches.createdAt, end))
         )
-      );
+      )
+      .orderBy(desc(matches.createdAt));
 
     return Response.json({ matches: rows });
   }
 
-  const rows = await db.select().from(matches);
+  const rows = await db.select().from(matches).orderBy(desc(matches.createdAt));
   return Response.json({ matches: rows });
 }
 
