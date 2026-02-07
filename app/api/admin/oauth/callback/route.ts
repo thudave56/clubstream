@@ -5,6 +5,8 @@ import { adminSettings, auditLog } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyOAuthState, deleteOAuthState } from "@/lib/oauth";
 import { encryptToken } from "@/lib/crypto";
+import { getAppBaseUrl } from "@/lib/app-base-url";
+import { getGoogleOAuthConfig } from "@/lib/google-oauth-config";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +23,7 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state");
   const error = searchParams.get("error");
 
-  const baseUrl = process.env.APP_BASE_URL!;
+  const baseUrl = getAppBaseUrl();
 
   // Handle user denial
   if (error === "access_denied") {
@@ -53,10 +55,12 @@ export async function GET(request: NextRequest) {
   await deleteOAuthState(state);
 
   try {
+    const { clientId, clientSecret } = getGoogleOAuthConfig();
+
     // Exchange code for tokens
     const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
+      clientId,
+      clientSecret,
       `${baseUrl}/api/admin/oauth/callback`
     );
 

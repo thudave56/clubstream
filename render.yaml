@@ -23,6 +23,15 @@ projects:
               # Must be 64 hex characters (32 bytes). Render will prompt on initial Blueprint apply.
               - key: ENCRYPTION_KEY
                 sync: false
+              # YouTube OAuth (set in Render, values from Google Cloud OAuth client)
+              - key: GOOGLE_CLIENT_ID
+                sync: false
+              - key: GOOGLE_CLIENT_SECRET
+                sync: false
+              # Optional. If unset, the app will use RENDER_EXTERNAL_URL.
+              # Set this if you use a custom domain or want redirects to use a specific base URL.
+              - key: APP_BASE_URL
+                sync: false
               # Staging convenience only. Production seed should set a secure value.
               - key: DEFAULT_ADMIN_PIN
                 value: "1234"
@@ -51,6 +60,14 @@ projects:
                   property: connectionString
               # Must be 64 hex characters (32 bytes). Render will prompt on initial Blueprint apply.
               - key: ENCRYPTION_KEY
+                sync: false
+              # YouTube OAuth (set in Render, values from Google Cloud OAuth client)
+              - key: GOOGLE_CLIENT_ID
+                sync: false
+              - key: GOOGLE_CLIENT_SECRET
+                sync: false
+              # Optional. If unset, the app will use RENDER_EXTERNAL_URL.
+              - key: APP_BASE_URL
                 sync: false
         databases:
           - name: clubstream-production-db

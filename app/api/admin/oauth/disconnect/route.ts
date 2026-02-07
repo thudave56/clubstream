@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { adminSettings, auditLog } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { decryptToken } from "@/lib/crypto";
+import { getGoogleOAuthConfig } from "@/lib/google-oauth-config";
 
 export const dynamic = "force-dynamic";
 
@@ -33,9 +34,10 @@ export async function POST() {
 
     // Revoke token with Google if it exists
     if (refreshToken) {
+      const { clientId, clientSecret } = getGoogleOAuthConfig();
       const oauth2Client = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET
+        clientId,
+        clientSecret
       );
 
       try {
@@ -69,7 +71,10 @@ export async function POST() {
   } catch (error) {
     console.error("OAuth disconnect error:", error);
     return NextResponse.json(
-      { error: "Failed to disconnect OAuth" },
+      {
+        error: "Failed to disconnect OAuth",
+        detail: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }

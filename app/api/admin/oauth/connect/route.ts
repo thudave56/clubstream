@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { google } from "googleapis";
 import { isAuthenticated } from "@/lib/session";
 import { generateOAuthState, storeOAuthState } from "@/lib/oauth";
+import { getAppBaseUrl } from "@/lib/app-base-url";
+import { getGoogleOAuthConfig } from "@/lib/google-oauth-config";
 import { db } from "@/db";
 import { adminSettings, auditLog } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -22,6 +24,9 @@ export async function GET() {
   }
 
   try {
+    const baseUrl = getAppBaseUrl();
+    const { clientId, clientSecret } = getGoogleOAuthConfig();
+
     // Update status to "connecting"
     await db
       .update(adminSettings)
@@ -34,9 +39,9 @@ export async function GET() {
 
     // Create OAuth2 client
     const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      `${process.env.APP_BASE_URL}/api/admin/oauth/callback`
+      clientId,
+      clientSecret,
+      `${baseUrl}/api/admin/oauth/callback`
     );
 
     // Generate authorization URL
@@ -57,7 +62,10 @@ export async function GET() {
   } catch (error) {
     console.error("OAuth connect error:", error);
     return NextResponse.json(
-      { error: "Failed to initiate OAuth flow" },
+      {
+        error: "Failed to initiate OAuth flow",
+        detail: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }
