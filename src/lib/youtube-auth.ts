@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { adminSettings } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { encryptToken, decryptToken } from "./crypto";
+import { getGoogleOAuthConfig } from "./google-oauth-config";
 
 /**
  * Get a valid YouTube API access token, refreshing if necessary
@@ -50,9 +51,10 @@ export async function getValidAccessToken(): Promise<string> {
  * @throws Error if refresh fails
  */
 async function refreshAccessToken(refreshToken: string): Promise<string> {
+  const { clientId, clientSecret } = getGoogleOAuthConfig();
   const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET
+    clientId,
+    clientSecret
   );
 
   oauth2Client.setCredentials({
@@ -104,9 +106,10 @@ async function refreshAccessToken(refreshToken: string): Promise<string> {
 export async function getYouTubeClient(): Promise<youtube_v3.Youtube> {
   const accessToken = await getValidAccessToken();
 
+  const { clientId, clientSecret } = getGoogleOAuthConfig();
   const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET
+    clientId,
+    clientSecret
   );
 
   oauth2Client.setCredentials({

@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { adminSettings, auditLog } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { decryptToken } from "@/lib/crypto";
+import { getGoogleOAuthConfigOptional } from "@/lib/google-oauth-config";
 
 export const dynamic = "force-dynamic";
 
@@ -33,13 +34,19 @@ export async function POST() {
 
     // Revoke token with Google if it exists
     if (refreshToken) {
-      const oauth2Client = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET
-      );
+      const cfg = getGoogleOAuthConfigOptional();
+      const oauth2Client = cfg
+        ? new google.auth.OAuth2(cfg.clientId, cfg.clientSecret)
+        : null;
 
       try {
-        await oauth2Client.revokeToken(decryptToken(refreshToken));
+        if (oauth2Client) {
+          await oauth2Client.revokeToken(decryptToken(refreshToken));
+        } else {
+          console.warn(
+            "[oauth] Skipping token revocation: GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET not set"
+          );
+        }
       } catch (error) {
         console.error("Token revocation failed:", error);
         // Continue anyway to clear local data
@@ -69,7 +76,10 @@ export async function POST() {
   } catch (error) {
     console.error("OAuth disconnect error:", error);
     return NextResponse.json(
-      { error: "Failed to disconnect OAuth" },
+      {
+        error: "Failed to disconnect OAuth",
+        detail: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }
