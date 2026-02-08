@@ -27,7 +27,9 @@
    - Auto-deploy: Disabled (if using GitHub Actions to trigger deploys)
    - Node version: `20` (set `NODE_VERSION=20` in Render if needed)
 2. Create Render Postgres instance for staging.
-3. Set Render staging environment variables:
+3. Run `npm run db:seed` once as a Render one-off job (initial bootstrap only).
+4. Create a weekly Render cron job to run `npm run db:cleanup` (set `RETENTION_DAYS=7`).
+5. Set Render staging environment variables:
    - `DATABASE_URL` (use the Render Postgres connection string)
    - `APP_BASE_URL`
    - `ENCRYPTION_KEY`
@@ -36,9 +38,10 @@
    - `GOOGLE_CLIENT_ID`
    - `GOOGLE_CLIENT_SECRET`
    - `NODE_ENV=production`
-4. Capture staging service ID for CI (`RENDER_SERVICE_ID`).
-5. In GitHub, create `staging` environment.
-6. Add `staging` environment secrets:
+   - `RENDER_ENV=staging`
+6. Capture staging service ID for CI (`RENDER_SERVICE_ID`).
+7. In GitHub, create `staging` environment.
+8. Add `staging` environment secrets:
    - `DATABASE_URL`
    - `APP_BASE_URL`
    - `ENCRYPTION_KEY`
@@ -49,7 +52,7 @@
    - `RENDER_API_KEY`
    - `RENDER_SERVICE_ID`
    - `DISCORD_WEBHOOK_URL`
-7. Add `STAGING_APP_BASE_URL` environment variable in GitHub Environment variables.
+9. Add `STAGING_APP_BASE_URL` environment variable in GitHub Environment variables.
 
 ## Production Setup
 1. Create Render Web Service for production.
@@ -104,6 +107,9 @@
 2. Confirm `Deploy Staging` runs and passes smoke tests.
 3. Trigger `Deploy Production` manually with a SHA that has successful `release-gate`.
 4. Confirm production approval prompt appears and deployment succeeds.
+
+## Related Runbooks
+- [Staging DB Maintenance](docs/runbooks/staging-db-maintenance.md)
 
 ## Evidence to Record
 - Render service IDs and database instance identifiers.
