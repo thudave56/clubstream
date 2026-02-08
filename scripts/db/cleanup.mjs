@@ -60,7 +60,7 @@ async function main() {
 
     console.log("[db:cleanup] retention_days=", retentionDays);
     console.log("[db:cleanup] sessions_deleted=", sessionsResult.rowCount ?? 0);
-    console.log("[db:cleanup] oauth_states_deleted=", oauthResult.rowCount ?? 0);
+    console.log("[db:cleanup] oauth_states_cleanup=done");
     console.log("[db:cleanup] audit_log_deleted=", auditResult.rowCount ?? 0);
     console.log("[db:cleanup] matches_deleted=", matchesResult.rowCount ?? 0);
     console.log("[db:cleanup] tournaments_deleted=", tournamentsResult.rowCount ?? 0);
