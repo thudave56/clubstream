@@ -40,3 +40,5 @@ yarn-error.log*
 # Local Render API/doc scratch files (not part of the blueprint)
 render-openapi.json
 render-*.html
+tmp/
+scripts/tmp/

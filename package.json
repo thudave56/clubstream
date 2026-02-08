@@ -26,6 +26,7 @@
     "deploy:verify-governance": "node scripts/deploy/verify-governance.mjs",
     "deploy:record-rehearsal": "node scripts/deploy/write-rehearsal-evidence.mjs",
     "render:validate-blueprint": "node scripts/render/validate-blueprint.mjs",
+    "db:cleanup": "node scripts/db/cleanup.mjs",
     "db:wait": "node scripts/deploy/wait-for-db.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -34,7 +35,8 @@
     "db:migrate:prod": "npm run db:migrate",
     "db:push:local": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "ts-node -P tsconfig.seed.json src/db/seed.ts"
+    "db:seed": "ts-node -P tsconfig.seed.json src/db/seed.ts",
+    "db:reset:staging": "node scripts/db/reset-staging.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.38.0",
